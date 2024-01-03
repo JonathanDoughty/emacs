@@ -1,8 +1,8 @@
 ;;; config.el --- Personal configuration
 ;;; Commentary:
 
-;;; Personal informatiom that you don't want in init.el or emacs.el.  As the generated message
-;;; should havce said, you should copy this to `config.el` and personalize that copy.
+;;; Personal informatiom that you don't want in init.el or emacs.el. As the generated message
+;;; should have said, you should copy this to `config.el` and personalize that copy.
 
 ;;; These maybe belong in some auth-source accessed place.
 
@@ -15,13 +15,16 @@
 (eval-when-compile (require 'url-vars)
                    (defvar mastodon-instance-url) ; mastodon.el
                    (defvar mastodon-active-user)
+                   (defvar mastodon-client--token-file)
                    )
 
-;; email settings
+;; Personal settings
 (setq mail-host-address (system-name)
       user-mail-address "your_email@eaxmple.com"
       mastodon-instance-url "https://mastodon.social"
-      mastodon-active-user "mastodon-user-name")
+      mastodon-active-user "your-mastodon-user-name"
+      mastodon-client--token-file (expand-file-name "/path/to/mastodon.plstore")
+      )
 
 (let* ((home (concat "~" init-file-user "/")) ; when; on multi-user systems, --user was possible.
        (elib (concat home ".emacs.d/")))
@@ -35,5 +38,10 @@
   (make-directory my-backup-dir t)
   (message "Created %s" my-backup-dir))
 
+;; Once copied to config.el as required you may want to remove these next comments.
+;; Local Variables:
+;; flycheck-disabled-checkers: (emacs-lisp-checkdoc)
+;; End:
+;; flycheck: user is supposed to copy this to config.el
 (provide 'config)
 ;;; config.el ends here
