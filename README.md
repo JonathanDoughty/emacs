@@ -2,8 +2,9 @@
 
 As the [warning says](emacs.el) Many years of cruft here.
 
-Some are the results from using different emacs on different platforms over
-the decades and attempting to maintain compatibility as the world evolves.
+Some from using different flavors of emacs on assorted platforms over the
+decades, attempting to maintain compatibility as the world evolves. Most from
+perceived attempts to make things work more easily in the context du jour.
 
 `init.el` is the starting point whose purpose is to orchestrate:
 
@@ -18,13 +19,14 @@ the decades and attempting to maintain compatibility as the world evolves.
 1. Byte-compile the main initialization file, from back when byte-compiling
    made a substantial difference in start up times.
 
-Most configuration happens in the main initialization - `emacs.el` - file,
-with `custom.el` being kept fairly lean manually. When packages use `custom.el` I
-move most customization into `emacs.el` so I have one place to look.
+Most configuration happens in the main - `emacs.el` - initialization file.
+When packages use `custom.el` I move most customization into `emacs.el` so I
+have one place to look.
 
 While there are conditionals referencing other versions of emacs the only time
-I address these are when I need to use multiple versions.
+I address these are when I need to use multiple versions, rare these days so YMMV.
 
 Currently I primarily use the GNU
 [EmacsForMacOS](https://emacsformacosx.com/), version 29.1 with native GUI
-support version on macOS.
+support version on macOS, occasionally reverting to [Mitsuharu Yamamoto's Emacs Mac
+Port](https://github.com/railwaycat/homebrew-emacsmacport)

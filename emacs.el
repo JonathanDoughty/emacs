@@ -4,7 +4,9 @@
 (defconst jwd/warning "
 Warning: Many years of cruft here.
 
-Some results from using different emacs on different platforms over the decades.
+Some from using different flavors of emacs on assorted platforms over the decades.
+More from adapting to what made various projects easier over that time.
+Too much from yak shaving.
 ")
 
 ;;; Code:
@@ -219,7 +221,6 @@ Not sure this works reliably, possibly useful in cases where something in the
   (cond ((local-variable-p 'write-file-hooks)
          (remove-hook 'write-file-hooks 'delete-trailing-whitespace t))))
 
-
 ;; Key bindings related to the above display/whitespace manipulation
 (define-key global-map (kbd "C-c d") 'jwd/delete-leading-whitespace)
 (define-key global-map (kbd "C-c C-SPC") 'whack-whitespace)
@@ -227,10 +228,10 @@ Not sure this works reliably, possibly useful in cases where something in the
 (define-key global-map (kbd "C-c o") 'just-one-space) ; default M-SPC is macOS SpotLight
 
 ;; Where/how I like my buffers displayed
-;; Further yak-shaving means a trip down the display-buffer-alist rabbit hole
-
+;; Warning: further yak-shaving means a trip down the display-buffer-alist rabbit hole
 (defun jwd/list-buffers (&optional arg)
-  "It seems I am always immediately switching to the buffer list anyway."
+  "It seems I am always immediately switching to the buffer list anyway.
+Pass ARG along to \='list-buffers\='."
   (interactive "P")
   (list-buffers arg)
   (pop-to-buffer "*Buffer List*"
@@ -603,9 +604,13 @@ Or not if TERM-ONLY."
 (setq-default indent-tabs-mode nil)     ; never insert tabs
 
 ;;; Some key bindings I've grown to depend on
+;;; Overrides:
 (define-key global-map  (kbd "C-s") 'isearch-forward-regexp)
 (define-key global-map  (kbd "C-r") 'isearch-backward-regexp)
-(define-key global-map  (kbd "C-c C-z") 'jwd/find-shell)
+;;; User keys:
+(define-key global-map  (kbd "C-c z") 'jwd/find-shell)
+(define-key global-map  (kbd "C-c b") 'bury-buffer)
+;; Ctrl-x overrides:
 (define-key ctl-x-map   (kbd "C-r") 'jwd/query-replace-regexp)
 (define-key ctl-x-map   (kbd "C-q") 'view-mode) ;; replace the less useful read-only-mode
 (define-key ctl-x-map   (kbd "c") 'goto-char)
@@ -681,18 +686,7 @@ this confusing monstrosity is what you want 99% of the time"
   (defvar web-mode-enable-current-column-highlight t)
   )
 
-;; JavaScript
-;; I used to use js2-mode but reverted to standard 2021/07/28
-(add-to-list 'auto-mode-alist '("tiddlywiki\\.info$" . js-mode) t)
-
 ;; Python
-;; needs emacs-jedi and possibly
-;;   python setup.py install
-;;   pip install -r requirements.txt
-;; (when (autoload 'jedi:setup "jedi" nil t)
-;;   (jwd/add-hook 'python-mode-hook 'jedi:setup)
-;;   (setq jedi:complete-on-dot t))
-;; (jwd/add-hook 'python-mode-hook #'lsp) ;; requires lsp setup
 (define-coding-system-alias 'UTF-8 'utf-8) ;; IntelliJ (?) uses upper
 
 (defvar xml-font-lock-keywords
