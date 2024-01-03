@@ -243,7 +243,35 @@ Pass ARG along to \='list-buffers\='."
   )
 (define-key ctl-x-map  (kbd "C-b") 'jwd/list-buffers)
 
+;; originally from netnews, modified to go both ways
+(defun jwd/dos-unix (&optional unix-dos)
+  "Convert DOS line ending chars to the correct, Unix style.
+With prefix arg UNIX-DOS, go the other way."
+  (interactive "p")
+  (save-excursion
+    (goto-char (point-min))
+    (if unix-dos
+        (while (search-forward "\n" nil t) (replace-match "\r\n"))
+      (while (search-forward "\r" nil t) (replace-match "")))))
+
 ;; Package integration
+
+(use-package dired
+  :config
+  ;; much more useful to me than the default dired-copy-filename-as-kill
+  (define-key dired-mode-map  (kbd "w") 'wdired-change-to-wdired-mode)
+  ;; From: sof@dcs.glasgow.ac.uk (Sigbjorn Finne)
+  (defun dired-sort ()
+    "Dired sort hook to list directories first."
+    (interactive)
+    (save-excursion
+      (let (buffer-read-only)
+	(forward-line 2);; beyond dir. header
+	(sort-regexp-fields t "^.*$" "[ ]*." (point) (point-max))))
+    (set-buffer-modified-p nil)
+    (jwd/add-hook 'dired-after-readin-hook 'dired-sort)))
+
+;; make environment match current file
 (use-package direnv
   :config
   (direnv-mode))
@@ -257,8 +285,8 @@ Pass ARG along to \='list-buffers\='."
 
 ;; Paren matching
 (use-package smartparens-config
-  :ensure smartparens
-  :functions sp-pair
+  :requires smartparens
+  :commands sp-pair
   :config
   (smartparens-global-mode t)
   (show-smartparens-global-mode t)
@@ -279,44 +307,22 @@ Pass ARG along to \='list-buffers\='."
           ((looking-at "\\s)") (forward-char 1) (backward-list 1))
           (t (self-insert-command (or arg 1))))))
 
-;; Integrate TiddlyWiki tiddler editing
+;; Integrate TiddlyWiki tiddler and config editing
 (use-package tiddler-mode
-  :mode ("\\.tid\\'" . tiddler-mode))
+  :mode ("\\.tid\\'" . tiddler-mode)
+  :config
+  (add-to-list 'auto-mode-alist '("tiddlywiki\\.info$" . js-mode) t)
+  )
 
-;; add * bullet characters so lists are not collapsed by fill-paragraph
-(setq paragraph-start "\f\\|[ \t]*$\\|[ \t]*[-+*] ")
 (use-package unfill
   :bind (([remap fill-paragraph] . unfill-toggle)
-         ([(meta Q)] . unfill-paragraph)))
-
-;; originally from netnews, modified to go both ways
-(defun jwd/dos-unix (&optional unix-dos)
-  "Convert DOS line ending chars to the correct, Unix style.
-With prefix arg UNIX-DOS, go the other way."
-  (interactive "p")
-  (save-excursion
-    (goto-char (point-min))
-    (if unix-dos
-        (while (search-forward "\n" nil t) (replace-match "\r\n"))
-      (while (search-forward "\r" nil t) (replace-match "")))))
+         ([(meta Q)] . unfill-paragraph))
+  :config
+  ;; add * bullet characters so lists are not collapsed by fill-paragraph
+  (setq paragraph-start "\f\\|[ \t]*$\\|[ \t]*[-+*] ")
+  )
 
 ;;; Hook and mode specific customizations
-
-;; dired
-(use-package dired
-  :config
-  ;; much more useful to me than the default dired-copy-filename-as-kill
-  (define-key dired-mode-map  (kbd "w") 'wdired-change-to-wdired-mode)
-  ;; From: sof@dcs.glasgow.ac.uk (Sigbjorn Finne)
-  (defun dired-sort ()
-    "Dired sort hook to list directories first."
-    (interactive)
-    (save-excursion
-      (let (buffer-read-only)
-	(forward-line 2);; beyond dir. header
-	(sort-regexp-fields t "^.*$" "[ ]*." (point) (point-max))))
-    (set-buffer-modified-p nil)
-    (jwd/add-hook 'dired-after-readin-hook 'dired-sort)))
 
 (use-package flycheck
   :init (global-flycheck-mode 1)
@@ -356,6 +362,7 @@ With prefix arg UNIX-DOS, go the other way."
 (jwd/add-hook 'java-mode-hook #'lsp)
 
 (use-package org
+  :disabled
   :config
   (defun jwd/org-mode-hook ()
     "An attempt to move off TiddlyWiki."
@@ -519,19 +526,21 @@ Or not if TERM-ONLY."
   )
 
 (use-package auth-source
+  :requires config ;; defines authinfo credential path
   :init
-  (progn
+  (when (memq window-system '(mac ns))
     (setq auth-sources '(macos-keychain-generic
                          macos-keychain-internet
-                         :source "~/.emacs.d/.authinfo.gpg")
-          auth-source-debug t
+                         :source authinfo-source)
+          auth-source-debug t ;; WIP
           )))
 
 (use-package mastodon
+  :requires config ;; defines mastodon credentials
   :ensure t)
 
 (use-package powershell-mode
-  :config
+  :disabled
   :mode "\\.ps1\\'"
   :interpreter "powershell")
 
@@ -541,6 +550,9 @@ Or not if TERM-ONLY."
   :hook ((typescript-mode . tide-setup)
          (typescript-mode . tide-hl-identifier-mode)
          (before-save . tide-format-before-save)))
+
+(use-package winner ;; window configuration: C-c {<left>,<right>}
+  :ensure t)
 
 (use-package ws-butler                  ; trim whitespace
   :hook ((text-mode . ws-butler-mode)   ; may be too aggresive for, e.g., csv-mode
@@ -707,11 +719,18 @@ this confusing monstrosity is what you want 99% of the time"
 (use-package simpleclip
   :ensure t
   :functions simpleclip-mode
-  :config                         ;; Yakshave: make these OS specific
+  :config
   (simpleclip-mode 1)
-  (define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
-  (define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
-  (define-key global-map [(super x)] 'simpleclip-cut) ;; was 'kill-region
+  (when (memq window-system '(mac ns))
+    (define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
+    (define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
+    (define-key global-map [(super x)] 'simpleclip-cut) ;; was 'kill-region
+    ))
+
+(use-package powerline
+  :if window-system
+  :config
+  (powerline-center-theme)
   )
 
 ;; scripts in general
@@ -799,10 +818,6 @@ this confusing monstrosity is what you want 99% of the time"
   (setq-default header-line-format
                 '((which-func-mode ("" which-func-format " "))))
   (setq-default split-width-threshold nil) ;; dislike horizontal splits
-  (use-package powerline
-    :config
-    (powerline-center-theme)
-    )
   (message "Welcome %s - Emacs GUI initialized" (user-login-name)))
 
 (defun jwd/window-setup-hook ()
