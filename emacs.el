@@ -47,9 +47,9 @@ Too much from yak shaving.
   (setq mouse-drag-and-drop-region-cross-program t)
   (setq mouse-drag-copy-region t)
   (setq tty-select-active-regions t)
-  (setq max-redisplay-tics 500000)      ; shouldn't be needed
+  ;; (setq max-redisplay-ticks 500000) ; shouldn't be needed
   (setq show-paren-context-when-offscreen t)
-  (when (symbol-function 'malloc-trim)  ; also depends on GNU libc
+  (when (fboundp 'malloc-trim)  ; also depends on GNU libc
     (add-hook post-gc-hook #'malloc-trim))
   )
 
@@ -72,29 +72,28 @@ Too much from yak shaving.
                ;;  http only & https expired
                ;; '("marmalade" . "http://marmalade-repo.org/packages/")
 	       )
-  (when (< emacs-major-version 29)      ;now built-in
-    (package-initialize))
   )
 
 ;; Avoid some free variable warnings used a lot on byte-compile
 (eval-when-compile
   (require 'cc-vars))
 
-(eval-after-load 'gnutls
-  '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem"))
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents)
-  (package-install 'use-package)
-  (eval-when-compile
-    ; (message "Before load-path: %s" load-path)
-    (unless (bound-and-true-p package--initialized)
-      (package-initialize) ;; be sure load-path includes package directories during compilation
-      ; (message "After load-path: %s" load-path)
-      )
-    (require 'use-package)
-    ))
+(when (< (string-to-number emacs-version) 29.1)      ;; now built-in
+  (eval-after-load 'gnutls
+    (progn
+      (defvar gnutls-trustfiles)
+      '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem")))
+  (unless (package-installed-p 'use-package)
+    (package-refresh-contents)
+    (package-install 'use-package)
+    (eval-when-compile
+      (unless (bound-and-true-p package--initialized)
+        (package-initialize) ;; be sure load-path includes package directories during compilation
+        )
+      (require 'use-package)
+      )))
 (setq use-package-verbose t)            ; report loading
-(require 'bind-key)  ;; because some use-package use :bind
+(require 'bind-key)  ;; because some use-package uses :bind
 
 ;; Enable emacs to find executables that shells do
 (defvar local-bin
@@ -120,23 +119,27 @@ Too much from yak shaving.
 
 ;; Deposit backups, auto-saves, and other crud in a single, machine local directory.
 ;; Define this before custom is loaded.
+;; Consider https://github.com/emacscollective/no-littering as an alternative
 (defvar jwd/auto-save-directory
-  (cond (is-macos ;; Keep backups where I can autoclean them periodically
-         (defvar my-backup-dir) ;; see config*.el
-         (defvar my-login) ;; see config*.el
-         (let ((dir my-backup-dir))
-           (unless (file-exists-p dir)
-             (make-directory dir))
-           (expand-file-name dir)))
-        ((string-match my-login my-login-name)
-         ;; avoid problems if using this init file as some other user
-         (expand-file-name
-          (concat
-           (if (boundp 'user-init-directory) user-init-directory
-             (if (boundp 'user-emacs-directory) user-emacs-directory
-               "~/")) "backups/" )))
-        (t "~/Downloads")) "Where to save backups on this machine." )
+  (progn
+    (defvar my-login) ;; see config*.el
+    (cond (is-macos ;; Keep backups where I can autoclean them periodically
+           (defvar my-backup-dir) ;; see config*.el
+           (let ((dir my-backup-dir))
+             (unless (file-exists-p dir)
+               (make-directory dir))
+             (expand-file-name dir)))
+          ((string-match my-login my-login-name)
+           ;; avoid problems if using this init file as some other user
+           (expand-file-name
+            (concat
+             (if (boundp 'user-init-directory) user-init-directory
+               (if (boundp 'user-emacs-directory) user-emacs-directory
+                 "~/")) "backups/" )))
+          (t "~/Downloads")))
+  "Where to save backups on this machine." )
 (setq backup-directory-alist `((".*" . ,jwd/auto-save-directory))
+      auto-save-file-name-transforms `((".*" ,jwd/auto-save-directory t))
       auto-save-list-file-prefix (concat jwd/auto-save-directory "/.saves-")
       )
 
@@ -256,6 +259,28 @@ With prefix arg UNIX-DOS, go the other way."
 
 ;; Package integration
 
+(defun jwd/package-reminder ()
+  "Remind me of a repeated memory failure when managing packages."
+  (interactive)
+  (message "U - mark-upgrades; /m - list-upgrades; x - execute upgrades"))
+(add-hook 'package--post-download-archives-hook
+          #'jwd/package-reminder 'append)
+
+(use-package auth-source
+  :requires config ;; defines authinfo credential path
+  :init
+  (when (memq window-system '(mac ns))
+    (setq auth-sources '(macos-keychain-generic
+                         macos-keychain-internet
+                         :source authinfo-source)
+          auth-source-debug t ;; WIP
+          )))
+
+(use-package caddyfile-mode
+  :ensure t
+  :mode (("Caddyfile.*\\'" . caddyfile-mode)
+         ("caddy\\.conf\\'" . caddyfile-mode)))
+
 (use-package dired
   :config
   ;; much more useful to me than the default dired-copy-filename-as-kill
@@ -271,22 +296,67 @@ With prefix arg UNIX-DOS, go the other way."
     (set-buffer-modified-p nil)
     (jwd/add-hook 'dired-after-readin-hook 'dired-sort)))
 
-;; make environment match current file
-(use-package direnv
-  :config
-  (direnv-mode))
-
 ;; use all IDE indentation standard
 (use-package editorconfig
   :ensure t
+  :commands                             ; inform flycheck
+  #'editorconfig-get-properties-from-exec
   :config
-  (editorconfig-mode 1))
-;; try m-x editorconfig-display-current-properties in a buffer where those should have been applied
+  (editorconfig-mode 1)
+  (set-variable 'editorconfig-get-properties-function
+                ;; from external program, never internal fallback
+                #'editorconfig-get-properties-from-exec)
+  (setq editorconfig-trim-whitespaces-mode 'ws-butler-mode)
+  :bind
+  ("C-C e" . editorconfig-display-current-properties)
+  )
+
+;;; On the fly syntax checks
+(use-package flycheck
+  :init (setq sentence-end-double-space nil)
+  :config (global-flycheck-mode 1)
+  )
+
+;;; Spell checking
+(use-package ispell
+  :bind
+  (("H-i" . ispell-word)
+   ([(meta shift i)] . ispell-word))
+  :config
+  (defvar ispell-use-framepop-p nil)
+  (defvar ispell-choices-win-default-height 3) ; default 2 gets truncated
+  (setq ispell-personal-dictionary
+        (expand-file-name "aspell-dictionary" user-emacs-directory)) ; holdover
+  (eval-when-compile (defvar ispell-program-name))
+
+  ;; adapted from https://blog.binchen.org/posts/what-s-the-best-spell-check-set-up-in-emacs/
+  (cond
+   ;; try hunspell first; if hunspell can't be found try aspell
+   ((executable-find "hunspell")
+    (setq ispell-program-name "hunspell")
+    (setq ispell-local-dictionary "en_US")
+    (setq ispell-local-dictionary-alist
+          ;; Please note the list `("-d" "en_US")` contains ACTUAL parameters passed to hunspell
+          ;; You could use `("-d" "en_US,en_US-med")` to check with multiple dictionaries
+          '(("en_US" "[[:alpha:]]" "[^[:alpha:]]" "[']" nil ("-d" "en_US") nil utf-8)))
+
+    ;; new variable `ispell-hunspell-dictionary-alist' is defined in Emacs
+    ;; If it's nil, Emacs tries to automatically set up the dictionaries.
+    (when (boundp 'ispell-hunspell-dictionary-alist)
+      (setq ispell-hunspell-dictionary-alist ispell-local-dictionary-alist)))
+
+   ((executable-find "aspell")
+    (setq ispell-program-name "aspell")
+    ;; Please note ispell-extra-args contains ACTUAL parameters passed to aspell
+    (setq ispell-extra-args '("--sug-mode=ultra" "--lang=en_US")))
+
+   (t
+    (message "Couldn't find hunspell or aspell executables, spell checks will fail"))))
 
 ;; Paren matching
 (use-package smartparens-config
   :requires smartparens
-  :commands sp-pair
+  :commands sp-pair                     ; inform flycheck
   :config
   (smartparens-global-mode t)
   (show-smartparens-global-mode t)
@@ -298,14 +368,33 @@ With prefix arg UNIX-DOS, go the other way."
     (sp-pair "`" nil :when '(sp-point-before-same-p))
     (sp-pair "\"" nil :when '(sp-point-before-same-p))
     )
-  :bind ([(meta %)] . goto-match-paren)  ;; a crutch left over from vi days
   :init
-  (defun goto-match-paren (arg)
+  (defun jwd/goto-match-paren (arg)
     "Go to the matching paren if on a paren; otherwise insert %."
     (interactive "p")
     (cond ((looking-at "\\s(") (forward-list 1) (backward-char 1))
           ((looking-at "\\s)") (forward-char 1) (backward-list 1))
-          (t (self-insert-command (or arg 1))))))
+          (t (self-insert-command (or arg 1)))))
+  (define-key global-map (kbd "C-c %") 'jwd/goto-match-paren) ;; a crutch left over from vi days
+  )
+
+;;; Org mode - the hit by a bus possibility makes me not change
+(use-package org
+  :disabled
+  :config
+  (defun jwd/org-mode-hook ()
+    "An attempt to move off TiddlyWiki."
+    (setq org-return-follows-link t)
+    (setq org-tab-follows-link t)
+    )
+  :hook jwd/org-mode-hook
+  :bind (
+         :map org-mode-map
+         ("C-C l" . org-store-link)
+         ("C-c a" . org-agenda)
+         ("C-c b" . org-iswitchb)
+         )
+  )
 
 ;; Integrate TiddlyWiki tiddler and config editing
 (use-package tiddler-mode
@@ -314,18 +403,13 @@ With prefix arg UNIX-DOS, go the other way."
   (add-to-list 'auto-mode-alist '("tiddlywiki\\.info$" . js-mode) t)
   )
 
+;; Inverse of fill
 (use-package unfill
   :bind (([remap fill-paragraph] . unfill-toggle)
          ([(meta Q)] . unfill-paragraph))
   :config
   ;; add * bullet characters so lists are not collapsed by fill-paragraph
   (setq paragraph-start "\f\\|[ \t]*$\\|[ \t]*[-+*] ")
-  )
-
-;;; Hook and mode specific customizations
-
-(use-package flycheck
-  :init (global-flycheck-mode 1)
   )
 
 ;; Generic language support
@@ -340,7 +424,7 @@ With prefix arg UNIX-DOS, go the other way."
   ;;(require 'subr-x)
   )
 (defun jwd/java-mode-hook ()
-  "Setup for (rare)  editting java source on various platforms."
+  "Setup for (now rare) editting java source on various platforms."
   (interactive)
   ;; over-ride c-up-conditional
   (define-key java-mode-map  (kbd "C-c C-u") 'jwd/dos-unix)
@@ -360,24 +444,6 @@ With prefix arg UNIX-DOS, go the other way."
          )))
 (jwd/add-hook 'java-mode-hook 'jwd/java-mode-hook)
 (jwd/add-hook 'java-mode-hook #'lsp)
-
-(use-package org
-  :disabled
-  :config
-  (defun jwd/org-mode-hook ()
-    "An attempt to move off TiddlyWiki."
-    (setq org-return-follows-link t)
-    (setq org-tab-follows-link t)
-    (setq org-agenda-files (file-expand-wildcards "~/CM/Org/*.org"))
-    )
-  :hook jwd/org-mode-hook
-  :bind (
-         :map org-mode-map
-         ("C-C l" . org-store-link)
-         ("C-c a" . org-agenda)
-         ("C-c b" . org-iswitchb)
-         )
-  )
 
 ;; shell-mode
 (eval-when-compile (require 'shell))
@@ -465,16 +531,6 @@ Or not if TERM-ONLY."
   (let ((after-change-functions nil)) ; empty when executing this func
     (call-interactively 'query-replace-regexp)))
 
-;; WIP: Attempt to deal with editorconfig not noticing (admittedly rare) updates to
-;; ~/CM/.editorconfig. Assumes the hash of editorconfig properties actually notices source file
-;; updates. Also assumes the fact that mine is a symlink is the actual problem.
-;; YakShave: There's got to be a file-notify way to deal with this
-(defadvice editorconfig-apply (around resolve-editorconfig-symlinks activate)
-  "Insure that editorconfig caches actual file to pick up change."
-  (let ((find-file-visit-truename t))
-    ad-do-it
-    ))
-
 ;; Mode hooks
 
 (jwd/add-hook 'csv-mode-hook 'csv-align-mode)
@@ -508,6 +564,12 @@ Or not if TERM-ONLY."
   :config
   :hook #'lsp)
 
+;; git
+(use-package magit
+  :bind
+  (("H-g" . magit-status))
+  )
+
 (use-package markdown-mode
   :mode "\\.md\\'"
   :config
@@ -520,30 +582,49 @@ Or not if TERM-ONLY."
                 ;; now 2021-06-22T22:23:37-0400
                 ;; which format-time-string claims is "full ISO 8601 format"
                 (insert (format-time-string "%FT%T%z"))))
-  (remove-hook 'after-change-functions 'markdown-check-change-for-wiki-link)
+  ;;(remove-hook 'after-change-functions 'markdown-check-change-for-wiki-link)
   (custom-set-variables '(markdown-command "pandoc"))
   :hook turn-on-auto-fill
   )
-
-(use-package auth-source
-  :requires config ;; defines authinfo credential path
-  :init
-  (when (memq window-system '(mac ns))
-    (setq auth-sources '(macos-keychain-generic
-                         macos-keychain-internet
-                         :source authinfo-source)
-          auth-source-debug t ;; WIP
-          )))
 
 (use-package mastodon
   :requires config ;; defines mastodon credentials
   :ensure t)
 
+;; process display
+(use-package proced
+  :custom
+  (proced-auto-update-flag t)
+  (proced-enable-color-flag t)
+  (proced-auto-update-interval 3)
+  )
+
+;; mode-line glitz
+(use-package powerline
+  :if window-system
+  :config
+  (powerline-center-theme)
+  )
+
+;; Windows holdover
 (use-package powershell-mode
   :disabled
   :mode "\\.ps1\\'"
   :interpreter "powershell")
 
+;; Clipboard interaction
+(use-package simpleclip
+  :ensure t
+  :functions simpleclip-mode
+  :config
+  (simpleclip-mode 1)
+  (when (memq window-system '(mac ns))                    ;; maybe should be is-mac?
+    (define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
+    (define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
+    (define-key global-map [(super x)] 'simpleclip-cut) ;; was 'kill-region
+    ))
+
+;; Typsecript
 (use-package tide
   :ensure t
   :after (typescript-mode company flycheck)
@@ -551,10 +632,22 @@ Or not if TERM-ONLY."
          (typescript-mode . tide-hl-identifier-mode)
          (before-save . tide-format-before-save)))
 
-(use-package winner ;; window configuration: C-c {<left>,<right>}
+;; HTML
+(use-package web-mode
+  :mode "\\.html?\\'"
+  :config
+  (defvar web-mode-engines-alist '(("go" . "\\.html\\'")))
+  (defvar web-mode-enable-engine-detection t)
+  :hook
+  (defvar web-mode-enable-current-column-highlight t)
+  )
+
+;; window configuration: C-c {<left>,<right>}
+(use-package winner
   :ensure t)
 
-(use-package ws-butler                  ; trim whitespace
+;; trim whitespace
+(use-package ws-butler
   :hook ((text-mode . ws-butler-mode)   ; may be too aggresive for, e.g., csv-mode
          (prog-mode . ws-butler-mode)))
 
@@ -599,18 +692,14 @@ Or not if TERM-ONLY."
  require-final-newline t                ; sigh, some applications need it
  )
 
-;;; Various generic additions to auto mode
+;;; Various additions to auto mode
 
 (add-to-list 'auto-mode-alist '("README$" . text-mode) t)
-(add-to-list 'auto-mode-alist '("\\.conf$" . m4-mode) t) ; rough guess
 (add-to-list 'auto-mode-alist '("\\.less$" . css-mode) t)
 (add-to-list 'auto-mode-alist '("\\.scss$" . css-mode) t)
-(autoload 'textile-minor-mode "textile-minor-mode" t)
-(add-to-list 'auto-mode-alist '("\\.textile$" . textile-minor-mode) t)
 (add-to-list 'auto-mode-alist '("\\.php$"  . html-mode) t)    ; php-mode
-(autoload 'dockerfile-mode "dockerfile-mode.el")
-(add-to-list 'auto-mode-alist '("Dockerfile\\'" . dockerfile-mode))
 (add-to-list 'auto-mode-alist '(".envrc\\'" . sh-mode))
+(add-to-list 'auto-mode-alist '(".gitconfig.*\\'" . conf-mode))
 
 ;;; Default values for buffer local variables
 (setq-default indent-tabs-mode nil)     ; never insert tabs
@@ -639,14 +728,14 @@ Or not if TERM-ONLY."
 
 ;;; https://www.emacswiki.org/emacs/UnfillParagraph
 ;;; Stefan Monnier <foo at acm.org>. It is the opposite of fill-paragraph
-(defun jwd/unfill-paragraph (&optional region)
+(defun jwd/unfill-region (&optional region)
   "Convert a multi-line REGION into a single line of text."
   (interactive (progn (barf-if-buffer-read-only) '(t)))
   (let ((fill-column (point-max))
         ;; This would override `fill-column' if it's an integer.
         (emacs-lisp-docstring-fill-column t))
     (fill-paragraph nil region)))
-(define-key global-map [(meta shift q)] 'jwd/unfill-paragraph)
+(define-key global-map [(meta shift q)] 'jwd/unfill-region)
 
 (defun jwd/activate-mail-or-compose (&optional arg)
   "Switch to *unsent mail* buffer if it exists; with prefix ARG compose new mail."
@@ -660,8 +749,9 @@ Or not if TERM-ONLY."
 (define-key ctl-x-map  (kbd "m") 'jwd/activate-mail-or-compose)
 
 (defun jwd/message-unfill ()
-  "Unfill paragraphs of a message buffer, then select the whole message.
-Sort of the inverse of message-fill-yanked-message."
+  "Unfill paragraphs of a message buffer, then select and copy the whole message.
+Sort of the inverse of message-fill-yanked-message.  Because I will typically
+use a message buffer to compose something for another app."
   (interactive)
   (let ((fill-column (point-max)))
     (fill-region (message-goto-body) (point-max)))
@@ -669,7 +759,7 @@ Sort of the inverse of message-fill-yanked-message."
   (set-mark-command nil)
   (message-goto-signature)
   (setq deactivate-mark nil)
-  )
+  (and (featurep 'simpleclip) (simpleclip-copy (point) (mark))))
 (require 'message)
 (define-key message-mode-map [(meta shift q)] 'jwd/message-unfill)
 
@@ -680,24 +770,6 @@ this confusing monstrosity is what you want 99% of the time"
   (align-regexp (region-beginning) (region-end) "\\(\\s-*\\)\\s-" 1 1 t)
   )
 
-;; Non-standard modes
-
-;; git
-(use-package magit
-  :bind
-  (("H-g" . magit-status))
-  )
-
-;; HTML
-(use-package web-mode
-  :mode "\\.html?\\'"
-  :config
-  (defvar web-mode-engines-alist '(("go"    . "\\.html\\'")))
-  (defvar web-mode-enable-engine-detection t)
-  :hook
-  (defvar web-mode-enable-current-column-highlight t)
-  )
-
 ;; Python
 (define-coding-system-alias 'UTF-8 'utf-8) ;; IntelliJ (?) uses upper
 
@@ -706,32 +778,6 @@ this confusing monstrosity is what you want 99% of the time"
         '("\".*\"" . font-lock-doc-string-face)
         '("<[^>]+>" . font-lock-keyword-face)
         ))
-
-;; process display
-(use-package proced
-  :custom
-  (proced-auto-update-flag t)
-  (proced-enable-color-flag t)
-  (proced-auto-update-interval 3)
-  )
-
-;; clipboard interaction
-(use-package simpleclip
-  :ensure t
-  :functions simpleclip-mode
-  :config
-  (simpleclip-mode 1)
-  (when (memq window-system '(mac ns))
-    (define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
-    (define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
-    (define-key global-map [(super x)] 'simpleclip-cut) ;; was 'kill-region
-    ))
-
-(use-package powerline
-  :if window-system
-  :config
-  (powerline-center-theme)
-  )
 
 ;; scripts in general
 (add-hook 'after-save-hook
@@ -777,25 +823,29 @@ this confusing monstrosity is what you want 99% of the time"
 (defalias 'wc-region 'count-words)
 (defalias 'face-at-point 'describe-face)
 
-;;; spelling
-(defvar ispell-use-framepop-p nil)
-(defvar ispell-choices-win-default-height 3) ; default 2 gets truncated
-(setq ispell-personal-dictionary
-      (expand-file-name "aspell-dictionary" user-emacs-directory))
-(eval-when-compile (defvar ispell-program-name))
-(cond (is-macos
-       (setq ispell-program-name (expand-file-name "aspell" local-bin)))
-      (is-windows
-       (setq ispell-program-name "aspell.exe"))
-      ((file-exists-p "/usr/bin/aspell")
-       (setq ispell-program-name "/usr/bin/aspell")))
-(define-key global-map [(meta shift i)] 'ispell-word)
+;;; Adapted from https://github.com/DarwinAwardWinner/dotemacs#user-content-fix-default-directory
+(require 'f)
+(defun jwd/resync-directories ()
+  "Update \='default-directory\=' to ~ in buffers such as *shell*, *scratch*."
+  (interactive)
+  (let ((startup-dir default-directory))
+    (unless (f-same? default-directory "~")
+      (dolist (buf (buffer-list))
+        (ignore-errors
+          (with-current-buffer buf
+            (when (and (null (buffer-file-name buf))
+                       (not (bound-and-true-p dired-directory))
+                       (or (f-same? default-directory startup-dir)
+                           (f-root? default-directory)))
+              (message "Changing default dir from %s to ~/ in %s"
+                       default-directory (buffer-name buf))
+              (cd "~"))))))))
 
-;; Overall UI set up
+;; UI set up
 (defun jwd/gui ()
   "Set up my most frequently used GUI features."
   (interactive)
-  ;; These belong in early-init-file
+  ;; These belong in early-init-file or config.el
   ;; YakShave: compute from (display-monitor-attributes-list)
   ;; Full height on my current laptop / font choice
   (add-to-list 'default-frame-alist '(width . 100))
@@ -905,7 +955,7 @@ this confusing monstrosity is what you want 99% of the time"
          (jwd/mac-init)
          (setq command-line-default-directory "~")
          )
-        (message "no emacs-inits for non macos"))
+        (t (message "no emacs-inits for non macos")))
   ;; otherwise socket is unpredictable:
   (setq server-socket-dir (format "/tmp/emacs_socket_for_%s" (user-login-name)))
   (require 'server)
@@ -914,6 +964,15 @@ this confusing monstrosity is what you want 99% of the time"
   )
 (jwd/add-hook 'after-init-hook 'jwd/emacs-inits t)
 
+(defun jwd/envrc ()
+  ;; https://github.com/purcell/envrc
+  "\"It's probably wise to do this late in your startup sequence\"."
+  ;; make buffer-local environment match current file
+  (use-package envrc ;; a better direnv / (direnv-mode)
+    :config
+    (envrc-global-mode)))
+(jwd/add-hook 'after-init-hook 'jwd/envrc t)
+
 ;;; end initializations:
 (defun jwd/initializations ()
   "Do my final initializations."
@@ -921,10 +980,11 @@ this confusing monstrosity is what you want 99% of the time"
                 (lambda () "avoid initial display of *scratch*"
                   (jwd/find-shell)
                   (delete-other-windows)
+                  (jwd/resync-directories)
                   (get-buffer "*shell*")))
   (if (> 0 (length (getenv "LANG"))) ;; avoid Gnome-isms
       (setenv "LANG" "C"))
-  (message "Initialized for %s" (system-name))
+  (message "Initialized for host named %s" (system-name))
   )
 
 ;; Kick things off for me and others

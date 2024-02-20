@@ -19,14 +19,11 @@ update_eshell () {
 }
 
 check_directory () {
-    # On Macs, anyway, shell mode sometimes starts in ~/.emacs.d
+    # shell mode sometimes starts in ~/.emacs.d
     if [[ "$PWD" != "$HOME" ]]; then
-        printf "\nChanging directory from %s to %s\n" "$PWD" "$HOME"
-        printf "\nYakshave: Perhaps caused by re-byte-compiling .emacs.el or dumping eshell aliases?\n"
-        printf "\nOr maybe a emacs.el fix would work, see %s\n" \
-               "https://github.com/DarwinAwardWinner/dotemacs#user-content-fix-default-directory"
         cd || exit "$HOME"
-        printf "\nYakshave: Tell emacs to run shell-resync-dirs\n"
+        printf "\nChanged directory from %s to %s\n" "$OLDPWD" "$PWD"
+        printf "\nBuffer default-directory handled by jwd/resync-directories\n"
     else
         printf "\n"
     fi
