@@ -139,11 +139,18 @@ Too much from yak shaving.
           (t "~/Downloads")))
   "Where to save backups on this machine." )
 (setq backup-directory-alist `((".*" . ,jwd/auto-save-directory))
-      auto-save-file-name-transforms `((".*" ,jwd/auto-save-directory t))
+      auto-save-file-name-transforms
+      `((".*" ,(concat jwd/auto-save-directory "/") t))
       auto-save-list-file-prefix (concat jwd/auto-save-directory "/.saves-")
+      delete-auto-save-files nil        ; keep a safety net
       )
 
-;; lock files mess up filesystem watchers, e.g., hammerspoon, hugo
+;; Before a buffer is reverted make a final auto-save
+(jwd/add-hook 'before-revert-hook
+              (lambda ()
+                (write-region (point-min) (point-max) (make-auto-save-file-name))))
+
+;; lock files can confuse filesystem watchers and since I am single user
 (setq create-lockfiles t)
 (setq lock-file-name-transforms         ; put mine with backups
       `(("\\`/.*/\\([^/]+\\)\\'" ,(concat jwd/auto-save-directory "/\\1") t)))
@@ -949,8 +956,8 @@ this confusing monstrosity is what you want 99% of the time"
   (auto-compression-mode t)
   (when (display-graphic-p)
     (set-scroll-bar-mode 'right))
-  (global-auto-revert-mode 1)
-  (transient-mark-mode t) ; default emacs?
+  (global-auto-revert-mode 1)      ; before-revert-hook will save a copy of externally reverted
+  (transient-mark-mode t)          ; default emacs?
   (cond (is-macos
          (jwd/mac-init)
          (setq command-line-default-directory "~")
