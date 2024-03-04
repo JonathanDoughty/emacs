@@ -163,12 +163,13 @@ Too much from yak shaving.
 
 ;;; Function definitions
 (defconst jwd/add-hooks t "Set to nil will skip all \='add-hook\=' while chaos is fixed.")
-(defconst jwd/toggle-verbose-add-hook nil "Set to t to  help me find where I have goofed.")
+(defconst jwd/verbose-add-hook nil "Set to t to  help me find where I have goofed.")
 (defun jwd/add-hook (hook fn &optional append)
-  "Install my hook FN to HOOK, being verbose about it when necessary."
+  "When jwd/add-hooks is non-nil install FN to HOOK.
+Be verbose if jwd/verbose-add-hook is non-nil."
   (interactive)
   (when jwd/add-hooks (add-hook hook fn append))
-  (when jwd/toggle-verbose-add-hook
+  (when jwd/verbose-add-hook
     (message "%s %s to hook %s %s"
              (if jwd/add-hooks "added" "skipped adding")
              fn hook append))
@@ -270,7 +271,7 @@ With prefix arg UNIX-DOS, go the other way."
   "Remind me of a repeated memory failure when managing packages."
   (interactive)
   (message "U - mark-upgrades; /m - list-upgrades; x - execute upgrades"))
-(add-hook 'package--post-download-archives-hook
+(jwd/add-hook 'package--post-download-archives-hook
           #'jwd/package-reminder 'append)
 
 (use-package auth-source
@@ -301,7 +302,7 @@ With prefix arg UNIX-DOS, go the other way."
 	(forward-line 2);; beyond dir. header
 	(sort-regexp-fields t "^.*$" "[ ]*." (point) (point-max))))
     (set-buffer-modified-p nil)
-    (jwd/add-hook 'dired-after-readin-hook 'dired-sort)))
+    (add-hook 'dired-after-readin-hook 'dired-sort)))
 
 ;; use all IDE indentation standard
 (use-package editorconfig
@@ -677,7 +678,7 @@ Or not if TERM-ONLY."
   (highlight-regexp "\$[0-9.]+" "hi-pink")
   (define-key hvi-mode-map (kbd "<tab>") "	") ; a real tab for TAB
   )
-(add-hook 'hvi-mode-hook
+(jwd/add-hook 'hvi-mode-hook
           (lambda ()
             "Override my \='text-mode\=' hook, which turns on auto-fill-mode."
             (message "HVI mode turning off auto-fill")
@@ -787,7 +788,7 @@ this confusing monstrosity is what you want 99% of the time"
         ))
 
 ;; scripts in general
-(add-hook 'after-save-hook
+(jwd/add-hook 'after-save-hook
           'executable-make-buffer-file-executable-if-script-p)
 
 ;; Advise annoyances
