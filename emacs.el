@@ -511,7 +511,8 @@ other windows."
   ;; (message "PATH is %s" (getenv "PATH"))
   (shell)
   (goto-char (point-max))
-  (recenter -2))
+  (recenter -2)
+  (get-buffer "*shell"))
 
 ;; yak-shave: refactor the above so it handles both shell and term buffers
 (defun jwd/find-term (&optional term-only)
@@ -973,9 +974,9 @@ this confusing monstrosity is what you want 99% of the time"
 (jwd/add-hook 'after-init-hook 'jwd/emacs-inits t)
 
 (defun jwd/envrc ()
+  "Make buffer-local environment match current file."
   ;; https://github.com/purcell/envrc
-  "\"It's probably wise to do this late in your startup sequence\"."
-  ;; make buffer-local environment match current file
+  ;; "It's probably wise to do this late in your startup sequence."
   (use-package envrc ;; a better direnv / (direnv-mode)
     :config
     (envrc-global-mode)))
@@ -983,13 +984,15 @@ this confusing monstrosity is what you want 99% of the time"
 
 ;;; end initializations:
 (defun jwd/initializations ()
-  "Do my final initializations."
+  "Perform final initializations."
   (setq-default initial-buffer-choice
-                (lambda () "avoid initial display of *scratch*"
-                  (jwd/find-shell)
-                  (delete-other-windows)
-                  (jwd/resync-directories)
-                  (get-buffer "*shell*")))
+                (lambda ()
+                  "Instead of startup screen find shell buffer and do other cleanup."
+                  (let ((shell-buf (jwd/find-shell)))
+                    (delete-other-windows)
+                    (jwd/resync-directories)
+                    (get-buffer shell-buf)
+                    )))
   (if (> 0 (length (getenv "LANG"))) ;; avoid Gnome-isms
       (setenv "LANG" "C"))
   (message "Initialized for host named %s" (system-name))
