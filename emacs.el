@@ -94,6 +94,11 @@ Too much from yak shaving.
 (setq use-package-verbose t)            ; report loading
 (require 'bind-key)  ;; because some use-package uses :bind
 
+;; Adjust defaults
+(unless (getenv "LANG")
+  (setenv "LANG" "en_US.UTF-8"))
+(set-locale-environment)
+
 ;; Enable emacs to find executables that shells do
 (defvar local-bin
   (let ((dir "/opt/homebrew/bin"))
@@ -111,10 +116,7 @@ Too much from yak shaving.
       (message "%s added to PATH, exec-path" local-bin))
   (message "WTF, no local-bin?"))
 
-;; Defaults
-(prefer-coding-system 'utf-8)
-(set-language-environment "UTF-8")
-(setq-default fill-column 95)
+(setq-default fill-column 95)           ; 70 is so last century
 
 ;; Deposit backups, auto-saves, and other crud in a single, machine local directory.
 ;; Define this before custom is loaded.
