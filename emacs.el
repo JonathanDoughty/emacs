@@ -41,7 +41,7 @@ Too much from yak shaving.
 (when (>= emacs-major-version 26)
   ;; deal with user visible cl deprecation warnings
   ;;(setq byte-compile-warnings '(not cl-functions))
-  (defvar confirm-kill-processes nil))
+  (setq confirm-kill-processes nil))
 
 (when (>= emacs-major-version 29)
   (setq mouse-drag-and-drop-region-cross-program t)
@@ -81,7 +81,6 @@ Too much from yak shaving.
 (when (< (string-to-number emacs-version) 29.1)      ;; now built-in
   (eval-after-load 'gnutls
     (progn
-      (defvar gnutls-trustfiles)
       '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem")))
   (unless (package-installed-p 'use-package)
     (package-refresh-contents)
@@ -331,8 +330,8 @@ With prefix arg UNIX-DOS, go the other way."
   (("H-i" . ispell-word)
    ([(meta shift i)] . ispell-word))
   :config
-  (defvar ispell-use-framepop-p nil)
-  (defvar ispell-choices-win-default-height 3) ; default 2 gets truncated
+  (setq ispell-use-framepop-p nil)
+  (setq ispell-choices-win-default-height 3) ; default 2 gets truncated
   (setq ispell-personal-dictionary
         (expand-file-name "aspell-dictionary" user-emacs-directory)) ; holdover
   (eval-when-compile (defvar ispell-program-name))
