@@ -118,6 +118,21 @@ Too much from yak shaving.
 
 (setq-default fill-column 95)           ; 70 is so last century
 
+;; Formerly useful to let me control all top level hooks should I really mess up.
+;; Rarely used now, perhaps better done with advice.
+(defconst jwd/add-hooks t "Set to nil will skip all \='add-hook\=' while chaos is fixed.")
+(defconst jwd/verbose-add-hook nil "Set to t may help me find where I have goofed.")
+(defun jwd/add-hook (hook fn &optional append)
+  "When jwd/add-hooks is non-nil install FN to HOOK.
+Be verbose if jwd/verbose-add-hook is non-nil."
+  (interactive)
+  (when jwd/add-hooks (add-hook hook fn append))
+  (when jwd/verbose-add-hook
+    (message "%s %s to hook %s %s"
+             (if jwd/add-hooks "added" "skipped adding")
+             fn hook append))
+  t)
+
 ;; Deposit backups, auto-saves, and other crud in a single, machine local directory.
 ;; Define this before custom is loaded.
 ;; Consider https://github.com/emacscollective/no-littering as an alternative
@@ -163,18 +178,6 @@ Too much from yak shaving.
          (load custom-file))))
 
 ;;; Function definitions
-(defconst jwd/add-hooks t "Set to nil will skip all \='add-hook\=' while chaos is fixed.")
-(defconst jwd/verbose-add-hook nil "Set to t to  help me find where I have goofed.")
-(defun jwd/add-hook (hook fn &optional append)
-  "When jwd/add-hooks is non-nil install FN to HOOK.
-Be verbose if jwd/verbose-add-hook is non-nil."
-  (interactive)
-  (when jwd/add-hooks (add-hook hook fn append))
-  (when jwd/verbose-add-hook
-    (message "%s %s to hook %s %s"
-             (if jwd/add-hooks "added" "skipped adding")
-             fn hook append))
-  t)
 
 ;; companions to bash aliases
 (defun jwd/ppath (dir)
