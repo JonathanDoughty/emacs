@@ -971,7 +971,7 @@ this confusing monstrosity is what you want 99% of the time"
   (defvar locate-command "mdfind")
   )
 
-(eval-when-compile (require 'server))
+(require 'server)
 (defun jwd/emacs-inits ()
   "Perform all my startup initializations."
   (interactive)
@@ -987,9 +987,7 @@ this confusing monstrosity is what you want 99% of the time"
         (t (message "no emacs-inits for non macos")))
   ;; otherwise socket is unpredictable:
   (setq server-socket-dir (format "/tmp/emacs_socket_for_%s" (user-login-name)))
-  (require 'server)
-  (unless server-process
-    (server-start))
+  (unless (server-running-p (server-start)))
   )
 (jwd/add-hook 'after-init-hook 'jwd/emacs-inits t)
 
