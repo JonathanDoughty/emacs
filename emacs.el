@@ -237,7 +237,7 @@ Not sure this works reliably, possibly useful in cases where something in the
          (remove-hook 'write-file-hooks 'delete-trailing-whitespace t))))
 
 ;; Key bindings related to the above display/whitespace manipulation
-(define-key global-map (kbd "C-c d") 'jwd/delete-leading-whitespace)
+(define-key global-map (kbd "C-c l") 'jwd/delete-leading-whitespace)
 (define-key global-map (kbd "C-c C-SPC") 'whack-whitespace)
 (define-key global-map (kbd "C-c SPC") 'delete-trailing-whitespace)
 (define-key global-map (kbd "C-c o") 'just-one-space) ; default M-SPC is macOS SpotLight
@@ -403,15 +403,18 @@ With prefix arg UNIX-DOS, go the other way."
     (sp-pair "`" nil :when '(sp-point-before-same-p))
     (sp-pair "\"" nil :when '(sp-point-before-same-p))
     )
-  :init
-  (defun jwd/goto-match-paren (arg)
-    "Go to the matching paren if on a paren; otherwise insert %."
-    (interactive "p")
-    (cond ((looking-at "\\s(") (forward-list 1) (backward-char 1))
-          ((looking-at "\\s)") (forward-char 1) (backward-list 1))
-          (t (self-insert-command (or arg 1)))))
-  (define-key global-map (kbd "C-c %") 'jwd/goto-match-paren) ;; a crutch left over from vi days
-  )
+  ;; load default config
+  (require 'smartparens-config))
+;; Related, via https://www.emacswiki.org/emacs/NavigatingParentheses#h5o-4
+(defun forward-or-backward-sexp (&optional arg)
+  "Go to the ARGth matching parenthesis character if one is adjacent to point."
+  (interactive "^p")
+  (cond ((looking-at "\\s(") (forward-sexp arg))
+        ((looking-back "\\s)" 1) (backward-sexp arg))
+        ;; Now, try to succeed from inside of a bracket
+        ((looking-at "\\s)") (forward-char) (backward-sexp arg))
+        ((looking-back "\\s(" 1) (backward-char) (forward-sexp arg))))
+(define-key global-map (kbd "C-c %") 'forward-or-backward-sexp) ;; a crutch left over from vi days
 
 ;;; Org mode - the hit by a bus possibility makes me not change
 (use-package org
