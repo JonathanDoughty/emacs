@@ -521,8 +521,8 @@ With prefix arg UNIX-DOS, go the other way."
 (defun jwd/find-shell (&optional shell-only)
   "Find end of shell buffer or create one by splitting the current window.
 If shell is already displayed in current frame or SHELL-ONLY,
-delete other windows in frame.  Stop displaying shell in all
-other windows."
+delete other windows in frame. Stop displaying shell in all
+other windows; then go to end of buffer and return the buffer."
   (interactive "p")
   (let* ((shellbuf (get-buffer "*shell*")))
     (if (or (eq (window-buffer) shellbuf) shell-only)
@@ -534,12 +534,11 @@ other windows."
     ;; undisplay shell in other windows (on other devices)
     (and shellbuf
          (> (length (get-buffer-window-list shellbuf nil t)) 0)
-         (replace-buffer-in-windows shellbuf)))
-  ;; (message "PATH is %s" (getenv "PATH"))
-  (shell)
-  (goto-char (point-max))
-  (recenter -2)
-  (get-buffer "*shell"))
+         (replace-buffer-in-windows shellbuf))
+    (setq shellbuf (shell))
+    (goto-char (point-max))
+    (recenter -2)
+    (get-buffer shellbuf)))
 
 ;; yak-shave: refactor the above so it handles both shell and term buffers
 (defun jwd/find-term (&optional term-only)
@@ -557,9 +556,10 @@ Or not if TERM-ONLY."
     (and termbuf
          (> (length (get-buffer-window-list termbuf nil t)) 0)
          (replace-buffer-in-windows termbuf))
-    (if termbuf (switch-to-buffer termbuf) (ansi-term shell-file-name)))
-  (goto-char (1- (point-max)))
-  (recenter -2))
+    (if termbuf (switch-to-buffer termbuf) (ansi-term shell-file-name))
+    (goto-char (1- (point-max)))
+    (recenter -2)
+    (get-buffer termbuf)))
 
 (defun jwd/query-replace-regexp () ;; https://emacs.stackexchange.com/a/47159/5146
   "Avoid 'Match data clobbered by buffer modification hooks' issues."
