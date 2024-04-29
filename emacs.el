@@ -274,7 +274,9 @@ With prefix arg UNIX-DOS, go the other way."
 (defun jwd/package-reminder ()
   "Remind me of a repeated memory failure when managing packages."
   (interactive)
-  (message "U - mark-upgrades; /m - list-upgrades; x - execute upgrades"))
+  (message "U - mark-upgrades; /m - list-upgrades; x - execute upgrades")
+  (pop-to-buffer "*Messages*" t)
+  (goto-char (point-max)))
 (jwd/add-hook 'package--post-download-archives-hook
           #'jwd/package-reminder 'append)
 
@@ -292,6 +294,12 @@ With prefix arg UNIX-DOS, go the other way."
   :ensure t
   :mode (("Caddyfile.*\\'" . caddyfile-mode)
          ("caddy\\.conf\\'" . caddyfile-mode)))
+
+(use-package company                    ; complete anything
+  :ensure t
+  :config
+  (company-tng-mode)                    ; tab through completions
+  (global-company-mode t))
 
 (use-package dired
   :config
@@ -365,14 +373,29 @@ With prefix arg UNIX-DOS, go the other way."
    (t
     (message "Couldn't find hunspell or aspell executables, spell checks will fail"))))
 
-;; Paren matching
-(use-package smartparens-config
-  :requires smartparens
-  :commands sp-pair                     ; inform flycheck
+;; just
+(use-package just-mode
   :config
-  (smartparens-global-mode t)
-  (show-smartparens-global-mode t)
-  (setq sp-show-pair-from-inside t)
+  (add-to-list 'auto-mode-alist '(".*[Jj]ustfile.*" . just-mode) t)
+  )
+
+;; Mode-line cleanup
+(use-package minions
+  :ensure t
+  :config (minions-mode 1))
+
+;; Emacs debugging
+(use-package realgud
+  :ensure t
+  :bind
+  ((["C-c d"] . realgud:bashdb)))
+
+;; Paren matching
+(use-package smartparens
+  :ensure smartparens  ;; install the package
+  :hook (prog-mode text-mode markdown-mode) ; add `smartparens-mode` to these hooks
+  :commands sp-pair                         ; inform flycheck
+  :config
   (progn
     ;; See https://emacs.stackexchange.com/a/29620/5146
     ;; and https://github.com/Fuco1/smartparens/wiki/Permissions
@@ -610,13 +633,6 @@ Or not if TERM-ONLY."
   (proced-auto-update-flag t)
   (proced-enable-color-flag t)
   (proced-auto-update-interval 3)
-  )
-
-;; mode-line glitz
-(use-package powerline
-  :if window-system
-  :config
-  (powerline-center-theme)
   )
 
 ;; Windows holdover
