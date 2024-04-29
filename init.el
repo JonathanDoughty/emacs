@@ -33,6 +33,9 @@ if not found load GENERIC-CONFIG and issue warning."
 %s was used to configure Emacs for you.
 Please copy it to %s
 and customize its content to your specifications.
+
+On first use this will download referenced packages
+and byte-compile them. Expect lots of warnings.
 "
 	           generic-config user-config)))
 
@@ -45,17 +48,6 @@ suggest NOT using this as your model. You may find some things of
 interest in %s which this loads.
 "
                      (concat (file-name-directory user-init-file) full-init))))
-
-(defun setup-load-path (elisp-path)
-  "Add ELISP-PATH directory tree to \='load-path\='."
-  ;; Setup so load-path can be set by `emacs -u [my-login]`, which used to
-  ;; make sense back in days when multi-user systems were more open.
-  (let ((current-directory default-directory)
-        (default-directory (expand-file-name "lisp" elisp-path)))
-    (push default-directory load-path)
-    (normal-top-level-add-subdirs-to-load-path) ;; Uses default-directory internally
-    (setq default-directory current-directory))
-  )
 
 (defun update-and-load-full-init (init-file compiled-init)
   "If INIT-FILE is out of date wrt to COMPILED-INIT byte-compile the former."
@@ -87,7 +79,6 @@ interest in %s which this loads.
          (el   (concat elib full-init-file))
          (elc  (concat el "c")))
 
-    (setup-load-path elib)
     (update-and-load-full-init el elc))
 
   (if (buffer-live-p user-warnings)

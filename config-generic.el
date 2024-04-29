@@ -26,12 +26,10 @@
       mastodon-client--token-file (expand-file-name "/path/to/mastodon.plstore")
       )
 
-(let* ((home (concat "~" init-file-user "/")) ; when; on multi-user systems, --user was possible.
-       (elib (concat home ".emacs.d/")))
-  (defvar user-emacs-directory (expand-file-name elib)
-    "Where all this appears to live."
-    ))
+;; Additional directories for load-path
+(add-to-list 'load-path (concat user-emacs-directory "/lisp"))
 
+;; Set up so that backups, etc., all end up in one place
 (defvar my-backup-dir (expand-file-name "~/Downloads/EmacsBackups")
   "Where backups, lock files, etc. go.")
 (unless (file-directory-p my-backup-dir)
