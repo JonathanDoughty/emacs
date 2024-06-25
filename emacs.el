@@ -23,20 +23,22 @@ Too much from yak shaving.
   "The \='pure\=' GNU EmacsForMacOS native GUI support version on Macs.")
 (defconst running-emacs-mac-port (numberp (string-match "darwin.*Carbon" (emacs-version)))
   "YAMAMOTO's Emacs Mac Port version on Macs.")
-(defconst running-emacs-mac (numberp (string-match "darwin" (emacs-version))))
+(defconst running-emacs-mac (eq system-type 'darwin))
 (defconst running-aquamacs (featurep 'aquamacs)
   "Aquamacs due to 64-bit issues on an ancient Mac.")
 (defconst running-xemacs (featurep 'xemacs)
-  "XEmacs was my perferred flavor on X11.")
+  "XEmacs was my preferred flavor on X11.")
 (defconst running-fsf
   (not (or running-xemacs running-aquamacs running-emacs-mac-port))
   "I started with canonical Emacs and still come back regularly.")
 
-;; Version specific settings
-(when (> emacs-major-version 24)
-  ;; Emacs > 27 will complain if any package requires cl, so this may be a losing battle.
-  ;; There may also be a way to use .emacs.d/early-init.el but I'm too lazy to add another init file.
-  (require 'cl-lib))
+;; Flavors of OS
+(defconst is-linux (string-match "linux" (symbol-name system-type)))
+(defconst is-macos (string-match-p "darwin" (symbol-name system-type)))
+(defconst is-unix (or (string-match "n.x" (symbol-name system-type))
+                      is-macos) "A unix-like system, Solaris maybe?")
+(defconst is-windows (string-match "windows" (symbol-name system-type))
+  "Using Windows is exceedingly rare for me.")
 
 (when (>= emacs-major-version 26)
   ;; deal with user visible cl deprecation warnings
@@ -49,17 +51,9 @@ Too much from yak shaving.
   (setq tty-select-active-regions t)
   ;; (setq max-redisplay-ticks 500000) ; shouldn't be needed
   (setq show-paren-context-when-offscreen t)
-  (when (fboundp 'malloc-trim)  ; also depends on GNU libc
-    (add-hook post-gc-hook #'malloc-trim))
+  ;; (when (fboundp 'malloc-trim)  ; also depends on GNU libc
+  ;;   (add-hook post-gc-hook #'malloc-trim))
   )
-
-;; Flavors of OS
-(defconst is-linux (string-match "linux" (symbol-name system-type)))
-(defconst is-macos (string-match-p "darwin" (symbol-name system-type)))
-(defconst is-unix (or (string-match "n.x" (symbol-name system-type))
-                      is-macos) "A unix-like system, Solaris maybe?")
-(defconst is-windows (string-match "windows" (symbol-name system-type))
-  "Using Windows is exceedingly rare for me.")
 
 ;; Be modern with packages; though use-package will be a critical dependency
 ;; prior to emacs 29 and requires some bootstrapping
@@ -69,29 +63,26 @@ Too much from yak shaving.
   (add-to-list 'package-archives
                ;; be sure default elpa's signature has been updated too
                '("melpa-stable" . "https://stable.melpa.org/packages/")
-               ;;  http only & https expired
+               ;;  http only & https expired:
                ;; '("marmalade" . "http://marmalade-repo.org/packages/")
 	       )
   )
 
-;; Avoid some free variable warnings used a lot on byte-compile
-(eval-when-compile
-  (require 'cc-vars))
-
-(when (< (string-to-number emacs-version) 29.1)      ;; now built-in
-  (eval-after-load 'gnutls
+(if (version< emacs-version "29.1")
     (progn
-      '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem")))
-  (unless (package-installed-p 'use-package)
-    (package-refresh-contents)
-    (package-install 'use-package)
-    (eval-when-compile
-      (unless (bound-and-true-p package--initialized)
-        (package-initialize) ;; be sure load-path includes package directories during compilation
-        )
-      (require 'use-package)
-      )))
-(setq use-package-verbose t)            ; report loading
+      (eval-after-load 'gnutls
+        '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem"))
+      (unless (package-installed-p 'use-package)
+        (package-refresh-contents)
+        (package-install 'use-package))))
+
+(eval-when-compile
+  (unless (bound-and-true-p package--initialized)
+    (setq package-install-upgrade-built-in t)
+    (package-initialize) ;; ensure load-path includes package directories during compilation
+    ))
+          
+(require 'use-package)
 (require 'bind-key)  ;; because some use-package uses :bind
 
 ;; Adjust defaults
@@ -281,6 +272,7 @@ With prefix arg UNIX-DOS, go the other way."
           #'jwd/package-reminder 'append)
 
 (use-package auth-source
+  :disabled
   :requires config ;; defines authinfo credential path
   :init
   (when (memq window-system '(mac ns))
@@ -291,17 +283,20 @@ With prefix arg UNIX-DOS, go the other way."
           )))
 
 (use-package caddyfile-mode
+  ;;:disabled
   :ensure t
   :mode (("Caddyfile.*\\'" . caddyfile-mode)
          ("caddy\\.conf\\'" . caddyfile-mode)))
 
 (use-package company                    ; complete anything
+  :disabled                             ; cause of EmacsForMacOS hangs/crashes?
   :ensure t
   :config
   (company-tng-mode)                    ; tab through completions
   (global-company-mode t))
 
 (use-package dired
+  :disabled
   :config
   ;; much more useful to me than the default dired-copy-filename-as-kill
   (define-key dired-mode-map  (kbd "w") 'wdired-change-to-wdired-mode)
@@ -318,6 +313,7 @@ With prefix arg UNIX-DOS, go the other way."
 
 ;; use all IDE indentation standard
 (use-package editorconfig
+  ;;:disabled
   :ensure t
   :commands                             ; inform flycheck
   #'editorconfig-get-properties-from-exec
@@ -333,20 +329,36 @@ With prefix arg UNIX-DOS, go the other way."
 
 ;;; On the fly syntax checks
 (use-package flycheck
+  ;;:disabled
+  :ensure t
   :init (setq sentence-end-double-space nil)
   :config (global-flycheck-mode 1)
   )
 
+;;; Help alternative with more context: https://github.com/Wilfred/helpful
+(use-package helpful
+  ;;:disabled
+  :ensure t
+  :bind                                 ; replace defaults
+  ("C-h f" . helpful-callable)
+  ("C-h v" . helpful-variable)
+  ("C-h k" . helpful-key)
+  ("C-h x" . helpful-command)
+  ("C-c C-d" . helpful-at-point)
+  )
+
 ;;; Spell checking
 (use-package ispell
+  ;;:disabled
+  :ensure t
   :bind
   (("H-i" . ispell-word)
    ([(meta shift i)] . ispell-word))
   :config
   (setq ispell-use-framepop-p nil)
   (setq ispell-choices-win-default-height 3) ; default 2 gets truncated
-  (setq ispell-personal-dictionary
-        (expand-file-name "aspell-dictionary" user-emacs-directory)) ; holdover
+  ;; (setq ispell-personal-dictionary
+  ;;       (expand-file-name "aspell-dictionary" user-emacs-directory)) ; holdover
   (eval-when-compile (defvar ispell-program-name))
 
   ;; adapted from https://blog.binchen.org/posts/what-s-the-best-spell-check-set-up-in-emacs/
@@ -363,35 +375,46 @@ With prefix arg UNIX-DOS, go the other way."
     ;; new variable `ispell-hunspell-dictionary-alist' is defined in Emacs
     ;; If it's nil, Emacs tries to automatically set up the dictionaries.
     (when (boundp 'ispell-hunspell-dictionary-alist)
-      (setq ispell-hunspell-dictionary-alist ispell-local-dictionary-alist)))
+      (setq ispell-hunspell-dictionary-alist ispell-local-dictionary-alist))
+    (message "Set up hunspell for spell-checking"))
 
    ((executable-find "aspell")
     (setq ispell-program-name "aspell")
     ;; Please note ispell-extra-args contains ACTUAL parameters passed to aspell
-    (setq ispell-extra-args '("--sug-mode=ultra" "--lang=en_US")))
+    (setq ispell-extra-args '("--sug-mode=ultra" "--lang=en_US"))
+    (message "Set up aspell for spell-checking"))
+
+   ((executable-find "ispell")
+    (setq ispell-program-name "ispell")
+    (message "Set up ispell for spell-checking"))
 
    (t
-    (message "Couldn't find hunspell or aspell executables, spell checks will fail"))))
+    (message "Couldn't find hunspell, aspell, or ispell executables; spell checks will fail"))))
 
 ;; just
 (use-package just-mode
+  ;;:disabled
+  :ensure t
   :config
   (add-to-list 'auto-mode-alist '(".*[Jj]ustfile.*" . just-mode) t)
   )
 
 ;; Mode-line cleanup
 (use-package minions
+  :disabled
   :ensure t
   :config (minions-mode 1))
 
 ;; Emacs debugging
 (use-package realgud
+  :disabled                             ; unless I'm actually debugging eith gdb
   :ensure t
   :bind
   ((["C-c d"] . realgud:bashdb)))
 
 ;; Paren matching
 (use-package smartparens
+  :disabled
   :ensure smartparens  ;; install the package
   :hook (prog-mode text-mode markdown-mode) ; add `smartparens-mode` to these hooks
   :commands sp-pair                         ; inform flycheck
@@ -418,7 +441,7 @@ With prefix arg UNIX-DOS, go the other way."
 
 ;;; Org mode - the hit by a bus possibility makes me not change
 (use-package org
-  :disabled
+  :disabled                             ; unless I've gone back to trying org
   :config
   (defun jwd/org-mode-hook ()
     "An attempt to move off TiddlyWiki."
@@ -436,6 +459,7 @@ With prefix arg UNIX-DOS, go the other way."
 
 ;; Integrate TiddlyWiki tiddler and config editing
 (use-package tiddler-mode
+  ;;:disabled
   :mode ("\\.tid\\'" . tiddler-mode)
   :config
   (add-to-list 'auto-mode-alist '("tiddlywiki\\.info$" . js-mode) t)
@@ -443,6 +467,7 @@ With prefix arg UNIX-DOS, go the other way."
 
 ;; Inverse of fill
 (use-package unfill
+  ;;:disabled
   :bind (([remap fill-paragraph] . unfill-toggle)
          ([(meta Q)] . unfill-paragraph))
   :config
@@ -452,6 +477,8 @@ With prefix arg UNIX-DOS, go the other way."
 
 ;; Generic language support
 (use-package lsp
+  :disabled                             ; should I be using eglot?
+  :ensure t
   :config
   (setq lsp-keymap-prefix "s-l"))
 ;;(jwd/add-hook 'XXX-mode-hook #'lsp) ;; as needed, where XXX is python, java, ...
@@ -598,6 +625,7 @@ Or not if TERM-ONLY."
 (jwd/add-hook 'cperl-mode-hook 'jwd/perl-mode-hook)
 
 (use-package lua-mode
+  ;;:disabled
   :mode "\\.lua\\'"
   :interpreter "lua"
   :config
@@ -605,11 +633,13 @@ Or not if TERM-ONLY."
 
 ;; git
 (use-package magit
+  :disabled
   :bind
   (("H-g" . magit-status))
   )
 
 (use-package markdown-mode
+  ;;:disabled
   :mode "\\.md\\'"
   :config
   (define-key markdown-mode-map (kbd "C-C d")
@@ -627,11 +657,13 @@ Or not if TERM-ONLY."
   )
 
 (use-package mastodon
+  :disabled
   :requires config ;; defines mastodon credentials
   :ensure t)
 
 ;; process display
 (use-package proced
+  :disabled
   :custom
   (proced-auto-update-flag t)
   (proced-enable-color-flag t)
@@ -640,24 +672,25 @@ Or not if TERM-ONLY."
 
 ;; Windows holdover
 (use-package powershell-mode
-  :disabled
+  :disabled                             ; reminder if I ever go back here
   :mode "\\.ps1\\'"
   :interpreter "powershell")
 
 ;; Clipboard interaction
 (use-package simpleclip
+  ;;:disabled
   :ensure t
-  :functions simpleclip-mode
   :config
   (simpleclip-mode 1)
-  (when (memq window-system '(mac ns))                    ;; maybe should be is-mac?
-    (define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
-    (define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
-    (define-key global-map [(super x)] 'simpleclip-cut) ;; was 'kill-region
-    ))
+  ;;(when (memq window-system '(mac ns))                    ;; these are the defaults, right?
+    ;;(define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
+    ;;(define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
+    ;;(define-key global-map [(super x)] 'simpleclip-cut))  ;; was 'kill-region
+    )
 
 ;; Typsecript
 (use-package tide
+  :disabled
   :ensure t
   :after (typescript-mode company flycheck)
   :hook ((typescript-mode . tide-setup)
@@ -666,6 +699,7 @@ Or not if TERM-ONLY."
 
 ;; HTML
 (use-package web-mode
+  :disabled
   :mode "\\.html?\\'"
   :config
   (defvar web-mode-engines-alist '(("go" . "\\.html\\'")))
@@ -676,14 +710,18 @@ Or not if TERM-ONLY."
 
 ;; window configuration: C-c {<left>,<right>}
 (use-package winner
+  :disabled
   :ensure t)
 
 ;; trim whitespace
 (use-package ws-butler
-  :hook ((text-mode . ws-butler-mode)   ; may be too aggresive for, e.g., csv-mode
-         (prog-mode . ws-butler-mode)))
+  :ensure t
+  :hook (on-first-buffer . ws-butler-global-mode)
+  ;; maybe just text-mode and prog-mode ?
+  )
 
 (use-package yaml-mode
+  :disabled
   :mode "\\.yml\\'"
   :interpreter ("yaml" . yaml-mode))
 
@@ -752,8 +790,6 @@ Or not if TERM-ONLY."
 (define-key global-map [(control meta tab)] 'completion-at-point)
 
 ;; Misc
-(eval-when-compile (require 'mouse))
-(setq mouse-yank-at-point t)            ; rather than at click position
 (put 'eval-expression 'disabled nil)
 (put 'narrow-to-region 'disabled nil)   ; almost never intentional
 (fset 'yes-or-no-p 'y-or-n-p)           ; single char answers preferred
@@ -856,9 +892,13 @@ this confusing monstrosity is what you want 99% of the time"
 (defalias 'face-at-point 'describe-face)
 
 ;;; Adapted from https://github.com/DarwinAwardWinner/dotemacs#user-content-fix-default-directory
-(require 'f)
+(use-package f
+  :ensure t
+  )
+;;(defun jwd/f-same-p (f1 f2)             ; close enough so we're not dependent on tge f package?
+;;  (equal (expand-file-name f1) (expand-file-name f2)))
 (defun jwd/resync-directories ()
-  "Update \='default-directory\=' to ~ in buffers such as *shell*, *scratch*."
+  "Update \='default-directory\=' to ~ in buffers such as *shell*, *scratch*, ..."
   (interactive)
   (let ((startup-dir default-directory))
     (unless (f-same? default-directory "~")
@@ -877,25 +917,18 @@ this confusing monstrosity is what you want 99% of the time"
 (defun jwd/gui ()
   "Set up my most frequently used GUI features."
   (interactive)
-  ;; These belong in early-init-file or config.el
-  ;; YakShave: compute from (display-monitor-attributes-list)
-  ;; Full height on my current laptop / font choice
-  (add-to-list 'default-frame-alist '(width . 100))
-  (add-to-list 'default-frame-alist '(height . 55))
-  (setq initial-frame-alist (copy-sequence default-frame-alist))
-  (add-to-list 'initial-frame-alist '(left . 1))
-  (add-to-list 'initial-frame-alist '(top . 1))
-  (setq frame-title-format
-        (concat
-         (cond ((getenv "SSH_TTY") ; remote host name in title / icon
-                (substring (system-name) 0 (string-match "\\." (system-name))))
-               (t "Emacs")) ": %b"))
+  (use-package solarized-theme
+    :ensure t
+    :config
+    (load-theme 'solarized-dark)
+    )
   (setq-default
    select-enable-clipboard t
    mouse-drag-copy-region nil
    select-enable-primary nil
    yank-pop-change-selection t
    )
+  (setq mouse-yank-at-point t)          ; rather than at click position
   (which-function-mode)
   (setq-default header-line-format
                 '((which-func-mode ("" which-func-format " "))))
@@ -907,7 +940,7 @@ this confusing monstrosity is what you want 99% of the time"
   (when (display-graphic-p) (jwd/gui)))
 (jwd/add-hook 'emacs-startup-hook 'jwd/window-setup-hook)
 
-;;; Emacs version specific initializations
+;;; Platform specific initializations
 (defun jwd/emacs-mac-keys ()
   "Setup my preferred Emacs key modifiers and bindings on Macs."
   (defvar mac-option-modifier)
@@ -932,16 +965,18 @@ this confusing monstrosity is what you want 99% of the time"
     (define-key global-map [(meta up)] 'scroll-down-command)
     (cond                               ; slight differences between macos versions
      (running-emacs-mac-port
-      (message "running-emacs-mac-port")
-      (defvar mac-frame-tabbing nil)    ; I prefer separate frames to Mac tabs
+      ;;(setq frame-title-format "Emacs: %b")
+      ;;(defvar mac-frame-tabbing nil)    ; I prefer separate frames to Mac tabs
       ;; (define-key global-map (kbd "s-`") 'other-frame) ;; emacs-mac-port uses handle-switch-frame
+      (message "running-emacs-mac-port")
       )
      (running-emacs-for-macos
-      (message "running-emacs-for-macos")
       (define-key global-map [(super "`")] 'other-frame)
+      ;;(setq frame-title-format "Emacs: %b")
+      (message "running-emacs-for-macos")
       )
      (t
-      (message "Running neither Emacs for Mac or railwaycat; did not set up mac keys")
+      (message "Running neither Emacs for Mac nor railwaycat; did not set up mac keys")
       )))
    ((<= emacs-major-version 23) ;; historical: preferred at EmacsWiki/EmacsForMacOS
     (setq mac-option-modifier 'alt)
@@ -972,9 +1007,9 @@ this confusing monstrosity is what you want 99% of the time"
 		  nil 0 nil
 		  file))
   (defvar locate-command "mdfind")
+  (message "Completed inits for macOS")
   )
 
-(require 'server)
 (defun jwd/emacs-inits ()
   "Perform all my startup initializations."
   (interactive)
@@ -988,17 +1023,27 @@ this confusing monstrosity is what you want 99% of the time"
          (setq command-line-default-directory "~")
          )
         (t (message "no emacs-inits for non macos")))
-  ;; otherwise socket is unpredictable:
-  (setq server-socket-dir (format "/tmp/emacs_socket_for_%s" (user-login-name)))
-  (unless (server-running-p (server-start)))
+  (message "Completed jwd/emacs-inits")
   )
 (jwd/add-hook 'after-init-hook 'jwd/emacs-inits t)
+
+(defun jwd/server-start ()
+  "Enable access from emacsclient."
+  (require 'server)
+  (unless (server-running-p)
+    ;; back in the day this was desirable
+    ;;(setq server-socket-dir (format "/tmp/emacs_socket_for_%s" (user-login-name)))
+    (server-start)
+    (message "server started")))
+(add-hook 'after-init-hook 'jwd/server-start t)
 
 (defun jwd/envrc ()
   "Make buffer-local environment match current file."
   ;; https://github.com/purcell/envrc
   ;; "It's probably wise to do this late in your startup sequence."
   (use-package envrc ;; a better direnv / (direnv-mode)
+    ;;:disabled
+    :ensure t
     :config
     (envrc-global-mode)))
 (jwd/add-hook 'after-init-hook 'jwd/envrc t)

@@ -4,8 +4,9 @@
 ;;; byte-compiled full set of initializations.
 
 ;;; Code:
-;;(setq debug-on-error t)
-(defvar do-init t "Whether to load byte-compiled full initialization file.")
+(setq debug-on-error t)
+(defvar load-init t "Whether to load full initialization file.")
+(defvar byte-compile-init nil "Whether to byte-compile the full initialization file.")
 (defvar config-file "config.el" "Configure personalizations.")
 (defvar full-init-file "emacs.el" "What would generally be in \='user-init-file\='.")
 (defvar user-warnings "*Warnings*" "Buffer for displaying user messages.")
@@ -17,10 +18,10 @@
       (progn
         (and new-bufferp (buffer-live-p user-warnings)
 	     (kill-buffer user-warnings))
-        (switch-to-buffer-other-window user-warnings)
+        (switch-to-buffer user-warnings)
         (insert (format "\nHi %s,\n\n" (user-full-name)))))
   (switch-to-buffer-other-window user-warnings)
-  (insert (apply #'format text args)))
+  (insert (apply #'format text args) "\n"))
 
 (defun load-config (user-config generic-config)
   "Load user specific configuration file USER-CONFIG.
@@ -55,20 +56,27 @@ interest in %s which this loads.
   ;; would normally be in a user-init-file from the larger init-file.
 
   (if (and (file-newer-than-file-p init-file compiled-init)
-           (string= (user-login-name) my-login))
+           (string= (user-login-name) my-login)
+           byte-compile-init)
       (progn
         (issue-warning nil "%s is not up to date, byte-compiling %s..." init-file compiled-init)
         (sit-for 1)
         (if (byte-compile-file init-file)
             (issue-warning nil "byte compiled %s" init-file)
           (issue-warning nil "error byte compiling %s" init-file)
-          )))
+          )
+        )
+    (message "not byte compiling %s" init-file))
   (cond
-   (do-init
+   (load-init
     (if (file-readable-p compiled-init)
         (load-file compiled-init)
       (message "no byte compiled %s in %s" init-file compiled-init)
-      (load-file init-file)))))
+      (if (not (file-readable-p init-file))
+          (message "%s is not readable" init-file)
+        (message "%s is readable, loading" init-file)
+        (load-file init-file))
+      ))))
 
 (defun config-and-load (config-path generic-config)
   "Initialize by loading CONFIG-PATH (or GENERIC-CONFIG)."
