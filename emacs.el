@@ -23,7 +23,7 @@ Too much from yak shaving.
   "The \='pure\=' GNU EmacsForMacOS native GUI support version on Macs.")
 (defconst running-emacs-mac-port (numberp (string-match "darwin.*Carbon" (emacs-version)))
   "YAMAMOTO's Emacs Mac Port version on Macs.")
-(defconst running-emacs-mac (eq system-type 'darwin))
+(defconst running-emacs-mac (numberp (string-match "darwin" (emacs-version))))
 (defconst running-aquamacs (featurep 'aquamacs)
   "Aquamacs due to 64-bit issues on an ancient Mac.")
 (defconst running-xemacs (featurep 'xemacs)
@@ -31,6 +31,18 @@ Too much from yak shaving.
 (defconst running-fsf
   (not (or running-xemacs running-aquamacs running-emacs-mac-port))
   "I started with canonical Emacs and still come back regularly.")
+
+;; Version specific settings
+
+(when (>= emacs-major-version 26)
+  (setq confirm-kill-processes nil))
+
+(when (>= emacs-major-version 29)
+  (setq mouse-drag-and-drop-region-cross-program t)
+  (setq mouse-drag-copy-region t)
+  (setq tty-select-active-regions t)
+  (setq show-paren-context-when-offscreen t)
+  )
 
 ;; Flavors of OS
 (defconst is-linux (string-match "linux" (symbol-name system-type)))
@@ -40,21 +52,6 @@ Too much from yak shaving.
 (defconst is-windows (string-match "windows" (symbol-name system-type))
   "Using Windows is exceedingly rare for me.")
 
-(when (>= emacs-major-version 26)
-  ;; deal with user visible cl deprecation warnings
-  ;;(setq byte-compile-warnings '(not cl-functions))
-  (setq confirm-kill-processes nil))
-
-(when (>= emacs-major-version 29)
-  (setq mouse-drag-and-drop-region-cross-program t)
-  (setq mouse-drag-copy-region t)
-  (setq tty-select-active-regions t)
-  ;; (setq max-redisplay-ticks 500000) ; shouldn't be needed
-  (setq show-paren-context-when-offscreen t)
-  ;; (when (fboundp 'malloc-trim)  ; also depends on GNU libc
-  ;;   (add-hook post-gc-hook #'malloc-trim))
-  )
-
 ;; Be modern with packages; though use-package will be a critical dependency
 ;; prior to emacs 29 and requires some bootstrapping
 (when (> emacs-major-version 23)
@@ -63,25 +60,28 @@ Too much from yak shaving.
   (add-to-list 'package-archives
                ;; be sure default elpa's signature has been updated too
                '("melpa-stable" . "https://stable.melpa.org/packages/")
-               ;;  http only & https expired:
+               ;;  http only & https expired
                ;; '("marmalade" . "http://marmalade-repo.org/packages/")
 	       )
   )
 
-(if (version< emacs-version "29.1")
-    (progn
-      (eval-after-load 'gnutls
-        '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem"))
-      (unless (package-installed-p 'use-package)
-        (package-refresh-contents)
-        (package-install 'use-package))))
-
+;; Avoid some free variable warnings used a lot on byte-compile
 (eval-when-compile
-  (unless (bound-and-true-p package--initialized)
-    (setq package-install-upgrade-built-in t)
-    (package-initialize) ;; ensure load-path includes package directories during compilation
-    ))
-          
+  (require 'cc-vars))
+
+(if (< (string-to-number emacs-version) 29.1)
+  (eval-after-load 'gnutls
+    (progn
+      '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem")))
+  (unless (package-installed-p 'use-package)
+    (package-refresh-contents)
+    (package-install 'use-package)
+    (eval-when-compile
+      (unless (bound-and-true-p package--initialized)
+        (package-initialize) ;; be sure load-path includes package directories during compilation
+        )
+      ))
+  )
 (require 'use-package)
 (require 'bind-key)  ;; because some use-package uses :bind
 
@@ -288,6 +288,10 @@ With prefix arg UNIX-DOS, go the other way."
   :mode (("Caddyfile.*\\'" . caddyfile-mode)
          ("caddy\\.conf\\'" . caddyfile-mode)))
 
+(use-package csv-mode                   ; more than the built-in ses-mode
+  :ensure t
+  :hook (csv-mode-mode . csv-align-mode))
+
 (use-package company                    ; complete anything
   :disabled                             ; cause of EmacsForMacOS hangs/crashes?
   :ensure t
@@ -468,6 +472,7 @@ With prefix arg UNIX-DOS, go the other way."
 ;; Inverse of fill
 (use-package unfill
   ;;:disabled
+  :ensure t
   :bind (([remap fill-paragraph] . unfill-toggle)
          ([(meta Q)] . unfill-paragraph))
   :config
@@ -599,8 +604,6 @@ Or not if TERM-ONLY."
 
 ;; Mode hooks
 
-(jwd/add-hook 'csv-mode-hook 'csv-align-mode)
-
 (defun jwd/after-find-hook ()
   "I generally don't want to edit found functions."
   (read-only-mode))
@@ -680,13 +683,14 @@ Or not if TERM-ONLY."
 (use-package simpleclip
   ;;:disabled
   :ensure t
+  :functions simpleclip-mode
   :config
   (simpleclip-mode 1)
-  ;;(when (memq window-system '(mac ns))                    ;; these are the defaults, right?
-    ;;(define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
-    ;;(define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
-    ;;(define-key global-map [(super x)] 'simpleclip-cut))  ;; was 'kill-region
-    )
+  (when (memq window-system '(mac ns))                    ;; maybe should be is-mac?
+    (define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
+    (define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
+    (define-key global-map [(super x)] 'simpleclip-cut) ;; was 'kill-region
+    ))
 
 ;; Typsecript
 (use-package tide
@@ -891,12 +895,13 @@ this confusing monstrosity is what you want 99% of the time"
 (defalias 'wc-region 'count-words)
 (defalias 'face-at-point 'describe-face)
 
-;;; Adapted from https://github.com/DarwinAwardWinner/dotemacs#user-content-fix-default-directory
 (use-package f
   :ensure t
   )
-;;(defun jwd/f-same-p (f1 f2)             ; close enough so we're not dependent on tge f package?
-;;  (equal (expand-file-name f1) (expand-file-name f2)))
+(eval-when-compile
+  (declare-function f-root? "f")
+  (declare-function f-same? "f"))
+;;; Adapted from https://github.com/DarwinAwardWinner/dotemacs#user-content-fix-default-directory
 (defun jwd/resync-directories ()
   "Update \='default-directory\=' to ~ in buffers such as *shell*, *scratch*, ..."
   (interactive)
@@ -940,7 +945,7 @@ this confusing monstrosity is what you want 99% of the time"
   (when (display-graphic-p) (jwd/gui)))
 (jwd/add-hook 'emacs-startup-hook 'jwd/window-setup-hook)
 
-;;; Platform specific initializations
+;;; Emacs version specific initializations
 (defun jwd/emacs-mac-keys ()
   "Setup my preferred Emacs key modifiers and bindings on Macs."
   (defvar mac-option-modifier)
@@ -965,15 +970,13 @@ this confusing monstrosity is what you want 99% of the time"
     (define-key global-map [(meta up)] 'scroll-down-command)
     (cond                               ; slight differences between macos versions
      (running-emacs-mac-port
-      ;;(setq frame-title-format "Emacs: %b")
-      ;;(defvar mac-frame-tabbing nil)    ; I prefer separate frames to Mac tabs
-      ;; (define-key global-map (kbd "s-`") 'other-frame) ;; emacs-mac-port uses handle-switch-frame
       (message "running-emacs-mac-port")
+      (defvar mac-frame-tabbing nil)    ; I prefer separate frames to Mac tabs
+      ;; (define-key global-map (kbd "s-`") 'other-frame) ;; emacs-mac-port uses handle-switch-frame
       )
      (running-emacs-for-macos
-      (define-key global-map [(super "`")] 'other-frame)
-      ;;(setq frame-title-format "Emacs: %b")
       (message "running-emacs-for-macos")
+      (define-key global-map [(super "`")] 'other-frame)
       )
      (t
       (message "Running neither Emacs for Mac nor railwaycat; did not set up mac keys")
@@ -1027,9 +1030,11 @@ this confusing monstrosity is what you want 99% of the time"
   )
 (jwd/add-hook 'after-init-hook 'jwd/emacs-inits t)
 
+(eval-when-compile                      ; hush byte-compile warnings
+  (require 'server)
+  (declare-function server-running-p "server"))
 (defun jwd/server-start ()
   "Enable access from emacsclient."
-  (require 'server)
   (unless (server-running-p)
     ;; back in the day this was desirable
     ;;(setq server-socket-dir (format "/tmp/emacs_socket_for_%s" (user-login-name)))

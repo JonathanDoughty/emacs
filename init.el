@@ -6,7 +6,7 @@
 ;;; Code:
 (setq debug-on-error t)
 (defvar load-init t "Whether to load full initialization file.")
-(defvar byte-compile-init nil "Whether to byte-compile the full initialization file.")
+(defvar byte-compile-init t "Whether to byte-compile the full initialization file.")
 (defvar config-file "config.el" "Configure personalizations.")
 (defvar full-init-file "emacs.el" "What would generally be in \='user-init-file\='.")
 (defvar user-warnings "*Warnings*" "Buffer for displaying user messages.")
