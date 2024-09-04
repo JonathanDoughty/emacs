@@ -841,6 +841,7 @@ Or not if TERM-ONLY."
     (fill-paragraph nil region)))
 (define-key global-map [(meta shift q)] 'jwd/unfill-region)
 
+;; mail / message related
 (defun jwd/activate-mail-or-compose (&optional arg)
   "Switch to *unsent mail* buffer if it exists; with prefix ARG compose new mail."
   (interactive "P")
@@ -852,20 +853,22 @@ Or not if TERM-ONLY."
         (compose-mail)))))
 (define-key ctl-x-map  (kbd "m") 'jwd/activate-mail-or-compose)
 
-(defun jwd/message-unfill ()
-  "Unfill paragraphs of a message buffer, then select and copy the whole message.
-Sort of the inverse of message-fill-yanked-message.  Because I will typically
+(eval-when-compile
+  (require 'message)
+  (defun jwd/message-unfill ()
+    "Unfill paragraphs of a message buffer, then select and copy the whole message.
+Sort of the inverse of message-fill-yanked-message. Because I will typically
 use a message buffer to compose something for another app."
-  (interactive)
-  (let ((fill-column (point-max)))
-    (fill-region (message-goto-body) (point-max)))
-  (message-goto-body)
-  (set-mark-command nil)
-  (message-goto-signature)
-  (setq deactivate-mark nil)
-  (and (featurep 'simpleclip) (simpleclip-copy (point) (mark))))
-(require 'message)
-(define-key message-mode-map [(meta shift q)] 'jwd/message-unfill)
+    (interactive)
+    (let ((fill-column (point-max)))
+      (fill-region (message-goto-body) (point-max)))
+    (message-goto-body)
+    (set-mark-command nil)
+    (message-goto-signature)
+    (setq deactivate-mark nil)
+    (and (featurep 'simpleclip) (simpleclip-copy (point) (mark))))
+  (define-key message-mode-map [(meta shift q)] 'jwd/message-unfill)
+  )
 
 (defun jwd/align-region ()
   "Via mastodon: align lines of text into columns ...
