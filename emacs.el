@@ -298,14 +298,13 @@ With prefix arg UNIX-DOS, go the other way."
   :hook (csv-mode-mode . csv-align-mode))
 
 (use-package company                    ; complete anything
-  :disabled                             ; cause of EmacsForMacOS hangs/crashes?
+  :disabled
   :ensure t
   :config
   (company-tng-mode)                    ; tab through completions
   (global-company-mode t))
 
 (use-package dired
-  :disabled
   :config
   ;; much more useful to me than the default dired-copy-filename-as-kill
   (define-key dired-mode-map  (kbd "w") 'wdired-change-to-wdired-mode)
@@ -319,6 +318,19 @@ With prefix arg UNIX-DOS, go the other way."
 	(sort-regexp-fields t "^.*$" "[ ]*." (point) (point-max))))
     (set-buffer-modified-p nil)
     (add-hook 'dired-after-readin-hook 'dired-sort)))
+
+;; Docker
+(use-package dockerfile-mode
+  :ensure t
+  :config
+  (put 'dockerfile-image-name 'safe-local-variable #'stringp)
+  )
+(use-package docker-compose-mode
+  :disabled                             ; no much compose yet
+  :ensure t
+  :config
+  (add-to-list 'auto-mode-alist '(".*compose.*\.yml\\'" . docker-compose-mode))
+  )
 
 ;; use all IDE indentation standard
 (use-package editorconfig
@@ -415,16 +427,21 @@ With prefix arg UNIX-DOS, go the other way."
   :config (minions-mode 1))
 
 ;; Emacs debugging
+;; consider instead dape https://github.com/svaante/dape
+;; https://silosneeded.com/en/2024/04/configuring-dape
+;; though whether that extends to bash I don't know.
 (use-package realgud
-  :disabled                             ; unless I'm actually debugging eith gdb
-  :ensure t
+  :disabled                             ; unless I'm actually debugging with gdb
+  :ensure nil
   :bind
   ((["C-c d"] . realgud:bashdb)))
 
 ;; Paren matching
+(electric-pair-mode t)                  ; annoying for "" marks ()
+(show-paren-mode t)
 (use-package smartparens
-  :disabled
-  :ensure smartparens  ;; install the package
+  :disabled                             ; too intrusive
+  :ensure nil
   :hook (prog-mode text-mode markdown-mode) ; add `smartparens-mode` to these hooks
   :commands sp-pair                         ; inform flycheck
   :config
@@ -485,9 +502,16 @@ With prefix arg UNIX-DOS, go the other way."
   (setq paragraph-start "\f\\|[ \t]*$\\|[ \t]*[-+*] ")
   )
 
+;; untabify smartly
+(use-package ws-butler
+  :ensure t
+  :config
+  (add-hook 'prog-mode-hook #'ws-butler-mode)
+  )
+
 ;; Generic language support
 (use-package lsp
-  :disabled                             ; should I be using eglot?
+  :disabled                             ; should I be using eglot, dape?
   :ensure t
   :config
   (setq lsp-keymap-prefix "s-l"))
@@ -634,6 +658,7 @@ Or not if TERM-ONLY."
 
 (use-package lua-mode
   ;;:disabled
+  :ensure t
   :mode "\\.lua\\'"
   :interpreter "lua"
   :config
@@ -642,12 +667,14 @@ Or not if TERM-ONLY."
 ;; git
 (use-package magit
   :disabled
+  :ensure nil
   :bind
   (("H-g" . magit-status))
   )
 
 (use-package markdown-mode
   ;;:disabled
+  :ensure t
   :mode "\\.md\\'"
   :config
   (define-key markdown-mode-map (kbd "C-C d")
