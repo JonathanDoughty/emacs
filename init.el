@@ -1,7 +1,7 @@
 ;; init.el --- Emacs init file
 ;;; Commentary:
 ;;; Look for and load user's config file of personalizations followed by the
-;;; byte-compiled full set of initializations.
+;;; typically byte-compiled full set of initializations.
 
 ;;; Code:
 (setq debug-on-error t)
@@ -10,7 +10,7 @@
 (defvar config-file "config.el" "Configure personalizations.")
 (defvar full-init-file "emacs.el" "What would generally be in \='user-init-file\='.")
 (defvar user-warnings "*Warnings*" "Buffer for displaying user messages.")
-(defvar my-login)  ; Should be set in config-file"
+(defvar my-login)  ; Should be set in config-file
 
 (defun issue-warning (new-bufferp text &rest args)
   "Display issues by formatting TEXT, optionally in NEW-BUFFERP with ARGS."
@@ -23,9 +23,18 @@
   (switch-to-buffer-other-window user-warnings)
   (insert (apply #'format text args) "\n"))
 
+(defun borrower-warning (user-login full-init)
+  "Make borrower USER-LOGIN aware that FULL-INIT is non-standard."
+  (if (not (string-match user-login (downcase (user-login-name))))
+      (issue-warning nil "
+You have discovered Jonathan's Emacs initialization files. He
+assumes you know what you are doing. You may find some things of
+more general interest in %s which this loads.
+" (concat (file-name-directory user-init-file) full-init))))
+
 (defun load-config (user-config generic-config)
   "Load user specific configuration file USER-CONFIG.
-if not found load GENERIC-CONFIG and issue warning."
+If not found load GENERIC-CONFIG and issue warning."
   (if (file-exists-p user-config)
       (load user-config t)
     (message "loading fallback %s" generic-config)
@@ -36,47 +45,51 @@ Please copy it to %s
 and customize its content to your specifications.
 
 On first use this will download referenced packages
-and byte-compile them. Expect lots of warnings.
-"
-	           generic-config user-config)))
+and may byte-compile portions of them. Expect lots of warnings.
+" generic-config user-config)))
 
-(defun borrower-warning (user-login full-init)
-  "Let USER-LOGIN borrower know that FULL-INIT isn't exactly standard."
-  (if (not (string-match user-login (downcase (user-login-name))))
-      (issue-warning nil "
-You have discovered Jonathan's Emacs initialization files. I
-suggest NOT using this as your model. You may find some things of
-interest in %s which this loads.
-"
-                     (concat (file-name-directory user-init-file) full-init))))
+(defun insure-byte-code-version ()
+  "Insure all .elc files are for this Emacs.
+Byte-code is not necessarily forwards or alternate version compatible."
+  (define-multisession-variable last-emacs-version "" "Emacs version used to byte-compile.")
+  (let* ((dir (file-name-directory user-init-file)))
+    (cond ((not (string= (emacs-version) (multisession-value last-emacs-version)))
+           (message "Different Emacs, re-byte-compiling elc files in %s" dir)
+           ;; Don't clutter mode line with byte code checking messages
+           (let ((inhibit-message-regexps (list "Checking "))
+                 ;; (message-log-max nil)  ; but still log them in *Messages*
+                 (inhibit-message t))
+             (byte-recompile-directory dir nil t))
+           (setf (multisession-value last-emacs-version) (emacs-version)))
+          (t
+           (message "Same Emacs as last, not re-byte-compiling %s" dir)))))
 
-(defun update-and-load-full-init (init-file compiled-init)
-  "If INIT-FILE is out of date wrt to COMPILED-INIT byte-compile the former."
-  ;; Historically, for speedier start up, I byte-compile most of what
-  ;; would normally be in a user-init-file from the larger init-file.
+(defun load-and-compile-full-init (init-file compiled-init)
+  "Load INIT-FILE. If out of date wrt COMPILED-INIT, byte-compile the former."
 
-  (if (and (file-newer-than-file-p init-file compiled-init)
-           (string= (user-login-name) my-login)
-           byte-compile-init)
-      (progn
-        (issue-warning nil "%s is not up to date, byte-compiling %s..." init-file compiled-init)
-        (sit-for 1)
-        (if (byte-compile-file init-file)
-            (issue-warning nil "byte compiled %s" init-file)
-          (issue-warning nil "error byte compiling %s" init-file)
-          )
-        )
-    (message "not byte compiling %s" init-file))
+  ;; Historically, for speedier start up, I byte-compile most of what would normally be in a
+  ;; user-init-file like this.
   (cond
    (load-init
-    (if (file-readable-p compiled-init)
-        (load-file compiled-init)
-      (message "no byte compiled %s in %s" init-file compiled-init)
-      (if (not (file-readable-p init-file))
-          (message "%s is not readable" init-file)
-        (message "%s is readable, loading" init-file)
-        (load-file init-file))
-      ))))
+    (if (and (file-newer-than-file-p init-file compiled-init)
+             (string= (user-login-name) my-login)
+             byte-compile-init)
+        ;; Arrange to byte-compile the init-file for next time
+        (progn
+          (issue-warning nil "%s is not up to date" init-file)
+          (delete-file compiled-init)
+          (eval-after-load init-file
+            (byte-compile-file init-file))
+          ))
+
+    (if (not (file-readable-p init-file))
+        (message "%s is not readable" init-file)
+      (message "%s is readable, loading" init-file))
+
+    (insure-byte-code-version)
+
+    ;; Before loading this init-file
+    (load-file init-file))))
 
 (defun config-and-load (config-path generic-config)
   "Initialize by loading CONFIG-PATH (or GENERIC-CONFIG)."
@@ -87,7 +100,7 @@ interest in %s which this loads.
          (el   (concat elib full-init-file))
          (elc  (concat el "c")))
 
-    (update-and-load-full-init el elc))
+    (load-and-compile-full-init el elc))
 
   (if (buffer-live-p user-warnings)
       (switch-to-buffer-other-window user-warnings)))
