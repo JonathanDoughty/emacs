@@ -124,10 +124,7 @@ Be verbose if jwd/verbose-add-hook is non-nil."
              fn hook append))
   t)
 
-;; Deposit backups, auto-saves, and other crud in a single, machine local directory.
-;; Define this before custom is loaded.
-;; Consider https://github.com/emacscollective/no-littering as an alternative
-(defvar jwd/auto-save-directory
+(defvar jwd/backup-dir
   (progn
     (defvar my-login) ;; see config*.el
     (cond (is-macos ;; Keep backups where I can autoclean them periodically
@@ -145,22 +142,30 @@ Be verbose if jwd/verbose-add-hook is non-nil."
                  "~/")) "backups/" )))
           (t "~/Downloads")))
   "Where to save backups on this machine." )
-(setq backup-directory-alist `((".*" . ,jwd/auto-save-directory))
-      auto-save-file-name-transforms
-      `((".*" ,(concat jwd/auto-save-directory "/") t))
-      auto-save-list-file-prefix (concat jwd/auto-save-directory "/.saves-")
-      delete-auto-save-files nil        ; keep a safety net
-      )
+
+;; Deposit backups, auto-saves, and other crud in a single, machine local directory.
+;; Define this before custom is loaded.
+;; Consider https://github.com/emacscollective/no-littering As an alternative
+(eval-when-compile
+  (require 'message)
+  (let* ((default (and (boundp 'jwd/backup-dir) (symbol-value 'jwd/backup-dir)))
+         (dir (or default (expand-file-name "~/Downloads/EmacsStuff"))))
+    (unless (file-directory-p dir)
+      (make-directory dir))
+    (setq backup-directory-alist `((".*" . ,dir))
+          auto-save-file-name-transforms
+          `((".*" ,(concat dir "/") t))
+          auto-save-list-file-prefix (concat dir "/.saves-")
+          delete-auto-save-files nil      ; keep a safety net
+          create-lockfiles t ; lock files confuse filesystem watchers
+          lock-file-name-transforms `(("\\`/.*/\\([^/]+\\)\\'" ,(concat dir "/\\1") t))
+          message-auto-save-directory dir))
+  )
 
 ;; Before a buffer is reverted make a final auto-save
 (jwd/add-hook 'before-revert-hook
               (lambda ()
                 (write-region (point-min) (point-max) (make-auto-save-file-name))))
-
-;; lock files can confuse filesystem watchers and since I am single user
-(setq create-lockfiles t)
-(setq lock-file-name-transforms         ; put mine with backups
-      `(("\\`/.*/\\([^/]+\\)\\'" ,(concat jwd/auto-save-directory "/\\1") t)))
 
 ;; Avoid custom stomping on init.el
 (let* ((f (expand-file-name "custom.el" user-emacs-directory)))
