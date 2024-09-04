@@ -62,17 +62,16 @@ Too much from yak shaving.
                '("melpa-stable" . "https://stable.melpa.org/packages/")
                ;;  http only & https expired
                ;; '("marmalade" . "http://marmalade-repo.org/packages/")
-	       )
+               )
   )
 
 ;; Avoid some free variable warnings used a lot on byte-compile
-(eval-when-compile
-  (require 'cc-vars))
+(eval-when-compile (require 'cc-vars))
 
 (if (< (string-to-number emacs-version) 29.1)
-  (eval-after-load 'gnutls
-    (progn
-      '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem")))
+    (eval-after-load 'gnutls
+      (progn
+        '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem")))
   (unless (package-installed-p 'use-package)
     (package-refresh-contents)
     (package-install 'use-package)
@@ -83,7 +82,7 @@ Too much from yak shaving.
       ))
   )
 (require 'use-package)
-(require 'bind-key)  ;; because some use-package uses :bind
+(require 'bind-key)  ; because some use-package uses :bind
 
 ;; Adjust defaults
 (unless (getenv "LANG")
@@ -274,7 +273,7 @@ With prefix arg UNIX-DOS, go the other way."
   (pop-to-buffer "*Messages*" t)
   (goto-char (point-max)))
 (jwd/add-hook 'package--post-download-archives-hook
-          #'jwd/package-reminder 'append)
+              #'jwd/package-reminder 'append)
 
 (use-package auth-source
   :disabled
@@ -314,8 +313,8 @@ With prefix arg UNIX-DOS, go the other way."
     (interactive)
     (save-excursion
       (let (buffer-read-only)
-	(forward-line 2);; beyond dir. header
-	(sort-regexp-fields t "^.*$" "[ ]*." (point) (point-max))))
+        (forward-line 2);; beyond dir. header
+        (sort-regexp-fields t "^.*$" "[ ]*." (point) (point-max))))
     (set-buffer-modified-p nil)
     (add-hook 'dired-after-readin-hook 'dired-sort)))
 
@@ -776,26 +775,7 @@ Or not if TERM-ONLY."
   :mode "\\.yml\\'"
   :interpreter ("yaml" . yaml-mode))
 
-;;; Some derived modes I've gen-ed up; others in lisp archive
-
-(define-derived-mode hvi-mode text-mode "HVI"
-  "Mode for editing OCR-ed HVI text files."
-  (setq case-fold-search nil)
-  (set (make-local-variable 'tab-always-indent) nil)
-  (set (make-local-variable 'indent-tabs-mode) t)  ; allow insert of real tabs
-  (highlight-changes-mode 1)
-  (whitespace-mode 1)
-  (highlight-regexp "^==+" "hi-yellow")
-  ;; (highlight-regexp "[\t]+" "hi-salmon")
-  (highlight-regexp "^[a-z0-9.]+" "hi-aquamarine")
-  (highlight-regexp "\$[0-9.]+" "hi-pink")
-  (define-key hvi-mode-map (kbd "<tab>") "	") ; a real tab for TAB
-  )
-(jwd/add-hook 'hvi-mode-hook
-          (lambda ()
-            "Override my \='text-mode\=' hook, which turns on auto-fill-mode."
-            (message "HVI mode turning off auto-fill")
-            (turn-off-auto-fill)))
+;;; Derived modes I've used in the past moved to lisp archive
 
 ;; kill ring
 (autoload 'browse-kill-ring "browse-kill-ring" t)
@@ -903,7 +883,7 @@ this confusing monstrosity is what you want 99% of the time"
 
 ;; scripts in general
 (jwd/add-hook 'after-save-hook
-          'executable-make-buffer-file-executable-if-script-p)
+              'executable-make-buffer-file-executable-if-script-p)
 
 ;; Advise annoyances
 
@@ -1020,16 +1000,16 @@ this confusing monstrosity is what you want 99% of the time"
     (define-key global-map [(meta up)] 'scroll-down-command)
     (cond                               ; slight differences between macos versions
      (running-emacs-mac-port
-      (message "running-emacs-mac-port")
+      (message "Running Emacs Mac Port / YAMAMOTO railwaycat")
       (defvar mac-frame-tabbing nil)    ; I prefer separate frames to Mac tabs
       ;; (define-key global-map (kbd "s-`") 'other-frame) ;; emacs-mac-port uses handle-switch-frame
       )
      (running-emacs-for-macos
-      (message "running-emacs-for-macos")
+      (message "Running Emacs for MacOS")
       (define-key global-map [(super "`")] 'other-frame)
       )
      (t
-      (message "Running neither Emacs for Mac nor railwaycat; did not set up mac keys")
+      (message "Running neither Emacs for Mac nor railwaycat; Mac keys not set up")
       )))
    ((<= emacs-major-version 23) ;; historical: preferred at EmacsWiki/EmacsForMacOS
     (setq mac-option-modifier 'alt)
@@ -1057,8 +1037,8 @@ this confusing monstrosity is what you want 99% of the time"
   (defun system-move-file-to-trash (file)
     "Use \"trash\" to move FILE to the system trash."
     (call-process (executable-find "trash")
-		  nil 0 nil
-		  file))
+                  nil 0 nil
+                  file))
   (defvar locate-command "mdfind")
   (message "Completed inits for macOS")
   )
