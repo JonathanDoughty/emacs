@@ -366,6 +366,8 @@ With prefix arg UNIX-DOS, go the other way."
   ("C-h k" . helpful-key)
   ("C-h x" . helpful-command)
   ("C-c C-d" . helpful-at-point)
+  :config
+  (advice-add 'helpful--navigate :after #'jwd/after-find-hook)
   )
 
 ;;; Spell checking
@@ -633,9 +635,11 @@ Or not if TERM-ONLY."
 
 ;; Mode hooks
 
-(defun jwd/after-find-hook ()
-  "I generally don't want to edit found functions."
-  (read-only-mode))
+(defun jwd/after-find-hook (&optional button)
+  "I generally don't want to edit found functions, regardless of helpful BUTTON."
+  (message "Viewing %s" (buffer-file-name))
+  (view-mode 1)
+  )
 (jwd/add-hook 'find-function-after-hook 'jwd/after-find-hook)
 
 (defun jwd/text-mode-hook  ()
