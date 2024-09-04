@@ -712,17 +712,28 @@ Or not if TERM-ONLY."
   :interpreter "powershell")
 
 ;; Clipboard interaction
-(use-package simpleclip
-  ;;:disabled
-  :ensure t
-  :functions simpleclip-mode
-  :config
-  (simpleclip-mode 1)
-  (when (memq window-system '(mac ns))                    ;; maybe should be is-mac?
-    (define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
-    (define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
-    (define-key global-map [(super x)] 'simpleclip-cut) ;; was 'kill-region
-    ))
+
+(cond ((and running-emacs-for-macos (>= emacs-major-version 29))
+       ;; simpleclip's implementation not working for me in GNU Emacs 29
+       ;; see https://stackoverflow.com/a/9986416/1124740
+       (define-key global-map [(super c)] 'clipboard-kill-ring-save)
+       (define-key global-map [(super x)] 'clipboard-kill-region)
+       (define-key global-map [(super v)] 'clipboard-yank)
+       (message "Substituted clipboard-* for simpleclip in %s" (emacs-version))
+       )
+      (t
+       (use-package simpleclip
+         ;;:disabled
+         :ensure t
+         :functions simpleclip-mode
+         :config
+         (simpleclip-mode 1)
+         (when (memq window-system '(mac ns))                    ;; maybe should be is-mac?
+           (define-key global-map [(super c)] 'simpleclip-copy)  ;; was 'kill-ring-save
+           (define-key global-map [(super x)] 'simpleclip-cut)   ;; was 'kill-region
+           (define-key global-map [(super v)] 'simpleclip-paste) ;; was 'yank
+           )))
+      )
 
 ;; Typsecript
 (use-package tide
