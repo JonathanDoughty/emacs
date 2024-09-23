@@ -52,26 +52,23 @@ Too much from yak shaving.
 (defconst is-windows (string-match "windows" (symbol-name system-type))
   "Using Windows is exceedingly rare for me.")
 
-;; Be modern with packages; though use-package will be a critical dependency
-;; prior to emacs 29 and requires some bootstrapping
+;; Avoid some free variable warnings used a lot on byte-compile
+(eval-when-compile (require 'cc-vars))
+
+;; Be modern with packages
 (when (> emacs-major-version 23)
   ;; enable packages and extras
   (require 'package)
   (add-to-list 'package-archives
-               ;; be sure default elpa's signature has been updated too
+               ;; Note: be sure default elpa's signature has been updated too
                '("melpa-stable" . "https://stable.melpa.org/packages/")
                ;;  http only & https expired
                ;; '("marmalade" . "http://marmalade-repo.org/packages/")
                )
   )
 
-;; Avoid some free variable warnings used a lot on byte-compile
-(eval-when-compile (require 'cc-vars))
-
-(if (< (string-to-number emacs-version) 29.1)
-    (eval-after-load 'gnutls
-      (progn
-        '(add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem")))
+;; use-package is now a critical dependency and requires some bootstrapping prior to emacs 29
+(when (< (string-to-number emacs-version) 29.1)
   (unless (package-installed-p 'use-package)
     (package-refresh-contents)
     (package-install 'use-package)
@@ -80,9 +77,13 @@ Too much from yak shaving.
         (package-initialize) ;; be sure load-path includes package directories during compilation
         )
       ))
+  (eval-after-load 'gnutls
+    (progn
+      (defvar gnutls-trustfiles)
+      (add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem")))
   )
 (require 'use-package)
-(require 'bind-key)  ; because some use-package uses :bind
+(require 'bind-key)  ; because some use-package stanzas use :bind
 
 ;; Adjust defaults
 (unless (getenv "LANG")
