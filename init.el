@@ -48,21 +48,49 @@ On first use this will download referenced packages
 and may byte-compile portions of them. Expect lots of warnings.
 " generic-config user-config)))
 
+(defvar byte-compiled-version "" "Persist Emacs used to byte-compile as well as satisfy below.")
+(defun byte-compiler-version ()
+  "Get Emacs version used to byte-compile using a built-in persistence mechanism."
+  (cond ((and (>= emacs-major-version 29) (>= emacs-minor-version 1))
+         (if (stringp byte-compiled-version) ; e.g., from loading old history file.
+             (makunbound 'byte-compiled-version))
+         (define-multisession-variable byte-compiled-version "" "Emacs used to byte-compile.")
+         (multisession-value byte-compiled-version))
+        ((>= emacs-major-version 22)    ; Abuse minibuffer history saving
+         (eval-and-compile
+           (require 'savehist)
+           (add-to-list 'savehist-additional-variables 'byte-compiled-version)
+           (ignore-errors
+             (load-file savehist-file)))
+         (symbol-value 'byte-compiled-version))
+        (t
+         (message "Don't know how to get persisted session info in ancient %s" (emacs-version)))))
+
+(defun persist-byte-compiler-version ()
+  "Save the value of this session's Emacs version using built-in persistence."
+  (let (value (emacs-version))
+    (cond ((and (>= emacs-major-version 29) (>= emacs-minor-version 1))
+           (setf (multisession-value byte-compiled-version) value))
+          ((>= emacs-major-version 22)
+           (setq byte-compiled-version value)
+           (savehist-save))
+          (t
+           (message "Don't know how to persist session info in ancient %s" value)))))
+
 (defun insure-byte-code-version ()
   "Insure all .elc files are for this Emacs.
 Byte-code is not necessarily forwards or alternate version compatible."
-  (define-multisession-variable last-emacs-version "" "Emacs version used to byte-compile.")
   (let* ((dir (file-name-directory user-init-file)))
-    (cond ((not (string= (emacs-version) (multisession-value last-emacs-version)))
-           (message "Different Emacs, re-byte-compiling elc files in %s" dir)
+    (cond ((not (string= (emacs-version) (byte-compiler-version)))
+           (message "Different Emacs, re-byte-compiling elc files in %s, see *Compile-Log*" dir)
            ;; Don't clutter mode line with byte code checking messages
            (let ((inhibit-message-regexps (list "Checking "))
                  ;; (message-log-max nil)  ; but still log them in *Messages*
                  (inhibit-message t))
              (byte-recompile-directory dir nil t))
-           (setf (multisession-value last-emacs-version) (emacs-version)))
+           (persist-byte-compiler-version))
           (t
-           (message "Same Emacs as last, not re-byte-compiling %s" dir)))))
+           (message "Same Emacs ws used for byte-compiling %s" dir)))))
 
 (defun load-and-compile-full-init (init-file compiled-init)
   "Load INIT-FILE. If out of date wrt COMPILED-INIT, byte-compile the former."
@@ -87,12 +115,10 @@ Byte-code is not necessarily forwards or alternate version compatible."
       (message "%s is readable, loading" init-file))
 
     (insure-byte-code-version)
-
-    ;; Before loading this init-file
     (load-file init-file))))
 
-(defun config-and-load (config-path generic-config)
-  "Initialize by loading CONFIG-PATH (or GENERIC-CONFIG)."
+(defun load-config-and-init (config-path generic-config)
+  "Initialize by loading CONFIG-PATH (or GENERIC-CONFIG), then full init file."
   (load-config config-path generic-config)
   (borrower-warning my-login full-init-file)
 
@@ -107,8 +133,8 @@ Byte-code is not necessarily forwards or alternate version compatible."
 
 (let* ((config-path (concat (file-name-directory user-init-file) config-file))
        (generic-config (replace-regexp-in-string "\.el" "-generic.el" config-path)))
-  (config-and-load config-path generic-config))
+  (load-config-and-init config-path generic-config))
 
 (provide 'init)
-;; Any executable lisp after this should be in custom.el
+;; I normally merge any executable lisp after this into custom.el; see config{,-generic}.el
 ;;; init.el ends here
