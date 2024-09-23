@@ -1,7 +1,7 @@
 ;;; config.el --- Personal configuration
 ;;; Commentary:
 
-;;; Personal informatiom that you don't want in init.el or emacs.el. As the generated message
+;;; Personal configuration that you don't want in init.el or emacs.el. As the generated message
 ;;; should have said, you should copy this to `config.el` and personalize that copy.
 
 ;;; These maybe belong in some auth-source accessed place.
@@ -12,7 +12,9 @@
 (defvar my-name "Your Full name")   ; when user-full-name isn't set
 
 ;; Avoid custom stomping on init.el
-(let* ((f (expand-file-name "~/.config/emacs-custom.el")))
+(let* ((f (expand-file-name
+           "~/.config/emacs-custom.el"  ; you might want to change this
+           )))
   (cond ((file-readable-p f)
          (setq custom-file f)
          (load custom-file))))

@@ -51,7 +51,7 @@ and may byte-compile portions of them. Expect lots of warnings.
 (defvar byte-compiled-version "" "Persist Emacs used to byte-compile as well as satisfy below.")
 (defun byte-compiler-version ()
   "Get Emacs version used to byte-compile using a built-in persistence mechanism."
-  (cond ((and (>= emacs-major-version 29) (>= emacs-minor-version 1))
+  (cond ((>= (string-to-number emacs-version) 29.1)
          (if (stringp byte-compiled-version) ; e.g., from loading old history file.
              (makunbound 'byte-compiled-version))
          (define-multisession-variable byte-compiled-version "" "Emacs used to byte-compile.")
@@ -68,8 +68,8 @@ and may byte-compile portions of them. Expect lots of warnings.
 
 (defun persist-byte-compiler-version ()
   "Save the value of this session's Emacs version using built-in persistence."
-  (let (value (emacs-version))
-    (cond ((and (>= emacs-major-version 29) (>= emacs-minor-version 1))
+  (let ((value (emacs-version)))
+    (cond ((>= (string-to-number emacs-version) 29.1)
            (setf (multisession-value byte-compiled-version) value))
           ((>= emacs-major-version 22)
            (setq byte-compiled-version value)
@@ -90,7 +90,7 @@ Byte-code is not necessarily forwards or alternate version compatible."
              (byte-recompile-directory dir nil t))
            (persist-byte-compiler-version))
           (t
-           (message "Same Emacs ws used for byte-compiling %s" dir)))))
+           (message "Same Emacs was used for byte-compiling %s" dir)))))
 
 (defun load-and-compile-full-init (init-file compiled-init)
   "Load INIT-FILE. If out of date wrt COMPILED-INIT, byte-compile the former."

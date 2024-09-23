@@ -76,12 +76,7 @@ Too much from yak shaving.
       (unless (bound-and-true-p package--initialized)
         (package-initialize) ;; be sure load-path includes package directories during compilation
         )
-      ))
-  (eval-after-load 'gnutls
-    (progn
-      (defvar gnutls-trustfiles)
-      (add-to-list 'gnutls-trustfiles "/etc/ssl/cert.pem")))
-  )
+      )))
 (require 'use-package)
 (require 'bind-key)  ; because some use-package stanzas use :bind
 
@@ -92,20 +87,15 @@ Too much from yak shaving.
 
 ;; Enable emacs to find executables that shells do
 (defvar local-bin
-  (let ((dir "/opt/homebrew/bin"))
-    ;; ToDo grr, make this work with a list of candidates
-    ;;(dolist (dir '("/opt/homebrew/bin" "/usr/local/bin"))
-    (when (file-directory-p dir) dir)
-    )
+  (cl-some (lambda (candidate)
+             (when (file-directory-p candidate)
+               (message "adding %s to PATH, exec-path %s" candidate exec-path)
+               (setenv "PATH" (concat (getenv "PATH") ":" candidate))
+               (add-to-list 'exec-path candidate)
+               ))
+           '("/opt/homebrew/bin" "/usr/local/bin"))
   "Where locally installed executables are most likely to be found."
   )
-;; My bash initialization conflicts with normal shell solutions
-(if (boundp 'local-bin)
-    (progn
-      (setenv "PATH" (concat (getenv "PATH") ":" local-bin))
-      (add-to-list 'exec-path local-bin)
-      (message "%s added to PATH, exec-path" local-bin))
-  (message "WTF, no local-bin?"))
 
 (setq-default fill-column 95)           ; 70 is so last century
 
@@ -479,14 +469,6 @@ With prefix arg UNIX-DOS, go the other way."
          )
   )
 
-;; Integrate TiddlyWiki tiddler and config editing
-(use-package tiddler-mode
-  ;;:disabled
-  :mode ("\\.tid\\'" . tiddler-mode)
-  :config
-  (add-to-list 'auto-mode-alist '("tiddlywiki\\.info$" . js-mode) t)
-  )
-
 ;; Inverse of fill
 (use-package unfill
   ;;:disabled
@@ -541,9 +523,12 @@ With prefix arg UNIX-DOS, go the other way."
 (jwd/add-hook 'java-mode-hook #'lsp)
 
 ;; shell-mode
-(eval-when-compile (require 'shell))
-(when is-macos                          ; use homebrew's current bash
-  (let ((bash-path (expand-file-name "bash" local-bin)))
+(eval-when-compile
+  (require 'shell)
+  (require 'sh-script)
+  )
+(when is-macos                          ; assumes exec-path has been augmented above
+  (let ((bash-path (executable-find "bash")))
     (defvar sh-shell-file bash-path)
     (setq explicit-shell-file-name bash-path))
   )
