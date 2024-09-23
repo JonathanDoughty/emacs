@@ -167,12 +167,6 @@ Be verbose if jwd/verbose-add-hook is non-nil."
               (lambda ()
                 (write-region (point-min) (point-max) (make-auto-save-file-name))))
 
-;; Avoid custom stomping on init.el
-(let* ((f (expand-file-name "custom.el" user-emacs-directory)))
-  (cond ((file-readable-p f)
-         (setq custom-file f)
-         (load custom-file))))
-
 ;;; Function definitions
 
 ;; companions to bash aliases

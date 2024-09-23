@@ -11,6 +11,12 @@
 (defvar my-login "your-username" "Borrowers will want to change this.")
 (defvar my-name "Your Full name")   ; when user-full-name isn't set
 
+;; Avoid custom stomping on init.el
+(let* ((f (expand-file-name "~/.config/emacs-custom.el")))
+  (cond ((file-readable-p f)
+         (setq custom-file f)
+         (load custom-file))))
+
 ;; satisfy flycheck
 (eval-when-compile (require 'url-vars)
                    (defvar mastodon-instance-url) ; mastodon.el
