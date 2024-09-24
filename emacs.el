@@ -353,6 +353,11 @@ With prefix arg UNIX-DOS, go the other way."
   :config
   (advice-add 'helpful--navigate :after #'jwd/after-find-hook)
   )
+(defun jwd/after-find-hook (&optional button)
+  "I generally want to view functions I've found, ignore helpful BUTTON."
+  (message "Viewing %s" (buffer-file-name))
+  (view-mode 1))
+(jwd/add-hook 'find-function-after-hook 'jwd/after-find-hook)
 
 ;;; Spell checking
 (use-package ispell
@@ -614,13 +619,6 @@ Or not if TERM-ONLY."
 
 ;; Mode hooks
 
-(defun jwd/after-find-hook (&optional button)
-  "I generally don't want to edit found functions, regardless of helpful BUTTON."
-  (message "Viewing %s" (buffer-file-name))
-  (view-mode 1)
-  )
-(jwd/add-hook 'find-function-after-hook 'jwd/after-find-hook)
-
 (defun jwd/text-mode-hook  ()
   "For \='text-mode\=' I remain old-school."
   (and is-unix
@@ -629,15 +627,6 @@ Or not if TERM-ONLY."
   (message "Text mode hook turning on auto-fill")
   (turn-on-auto-fill))
 (jwd/add-hook 'text-mode-hook 'jwd/text-mode-hook)
-
-(eval-when-compile (require 'perl-mode))
-(defun jwd/perl-mode-hook  ()
-  "Override cperl's high-handed re-definitions."
-  ;;(define-key cperl-mode-map [(meta backspace)] 'backward-kill-word)
-  ;;(define-key cperl-mode-map [(control h) v] 'describe-variable)
-  ;;(define-key cperl-mode-map [(control c) f] nil)
-  )
-(jwd/add-hook 'cperl-mode-hook 'jwd/perl-mode-hook)
 
 (use-package lua-mode
   ;;:disabled
@@ -947,13 +936,16 @@ this confusing monstrosity is what you want 99% of the time"
   (which-function-mode)
   (setq-default header-line-format
                 '((which-func-mode ("" which-func-format " "))))
-  (setq-default split-width-threshold nil) ;; dislike horizontal splits
+  (setq-default split-width-threshold nil) ; I dislike horizontal splits
+  (tool-bar-mode -1)                       ; tool bar adds little for me
   (message "Welcome %s - Emacs GUI initialized" (user-login-name)))
 
-(defun jwd/window-setup-hook ()
-  "Invoke my GUI customizations if there is a window environment."
-  (when (display-graphic-p) (jwd/gui)))
-(jwd/add-hook 'emacs-startup-hook 'jwd/window-setup-hook)
+(jwd/add-hook
+ 'emacs-startup-hook
+ (lambda ()
+   "Invoke my GUI customizations if there is a window environment."
+   (when (display-graphic-p)
+     (jwd/gui))))
 
 ;;; Emacs version specific initializations
 (defun jwd/emacs-mac-keys ()

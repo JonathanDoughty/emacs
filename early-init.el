@@ -20,7 +20,6 @@
 ;; place the initial one consistently
 (add-to-list 'initial-frame-alist '(left . 1))
 (add-to-list 'initial-frame-alist '(top . 1))
-(tool-bar-mode nil)
 
 (message "early-init completed")
 (provide 'early-init)
