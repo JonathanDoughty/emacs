@@ -1,12 +1,11 @@
 ;;; .emacs.el --- Emacs initializations
 ;;; Commentary:
 
-(defconst jwd/warning "
-Warning: Many years of cruft here.
-
-Some from using different flavors of emacs on assorted platforms over the decades.
-More from adapting to what made various projects easier over that time.
-Too much from yak shaving.
+(defconst jwd/warning "\
+There are any years of cruft here. Some from using different
+flavors of Emacs on assorted platforms over the decades. More
+from adapting to what made various projects easier over that
+time. Too much from yak shaving.
 ")
 
 ;;; Code:
@@ -921,11 +920,13 @@ this confusing monstrosity is what you want 99% of the time"
 (defun jwd/gui ()
   "Set up my most frequently used GUI features."
   (interactive)
-  (use-package solarized-theme
-    :ensure t
-    :config
-    (load-theme 'solarized-dark)
-    )
+  (if custom-file                       ; avoid custom appending to init.el
+      (use-package solarized-theme
+        :ensure t
+        :config
+        (load-theme 'solarized-dark)
+        )
+    (message "Set up custom-file in config.el to use downloaded theme"))
   (setq-default
    select-enable-clipboard t
    mouse-drag-copy-region nil

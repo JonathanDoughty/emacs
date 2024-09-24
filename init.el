@@ -26,7 +26,7 @@
 (defun borrower-warning (user-login full-init)
   "Make borrower USER-LOGIN aware that FULL-INIT is non-standard."
   (if (not (string-match user-login (downcase (user-login-name))))
-      (issue-warning nil "
+      (issue-warning nil "\
 You have discovered Jonathan's Emacs initialization files. He
 assumes you know what you are doing. You may find some things of
 more general interest in %s which this loads.
@@ -37,16 +37,19 @@ more general interest in %s which this loads.
 If not found load GENERIC-CONFIG and issue warning."
   (if (file-exists-p user-config)
       (load user-config t)
-    (message "loading fallback %s" generic-config)
-    (load generic-config)
-    (issue-warning t "
-%s was used to configure Emacs for you.
-Please copy it to %s
-and customize its content to your specifications.
+    (message "Copying and loading fallback %s" generic-config)
+    (copy-file generic-config user-config)
+    (load user-config)
+    (issue-warning t "\
+A copy of %s was used to configure Emacs.
+Adjust the content of %s to your needs.
 
-On first use this will download referenced packages
+Note the comments there about custom-file: until one is created
+this file may have changes appended resulting from customization.
+
+On first use the %s this loads will download referenced packages
 and may byte-compile portions of them. Expect lots of warnings.
-" generic-config user-config)))
+" generic-config user-config full-init-file)))
 
 (defvar byte-compiled-version "" "Persist Emacs used to byte-compile as well as satisfy below.")
 (defun byte-compiler-version ()

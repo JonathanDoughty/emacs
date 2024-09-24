@@ -1,10 +1,10 @@
-;;; config.el --- Personal configuration
+;;; config.el --- Personal configuration for init.el and emacs.el.
 ;;; Commentary:
 
-;;; Personal configuration that you don't want in init.el or emacs.el. As the generated message
-;;; should have said, you should copy this to `config.el` and personalize that copy.
+;;; As the generated message should have said, copy this to `config.el` and
+;;; personalize that copy.
 
-;;; These maybe belong in some auth-source accessed place.
+;;; For recent Emacs consider saving these in some auth-source accessed place.
 
 ;;; Code:
 
@@ -13,11 +13,12 @@
 
 ;; Avoid custom stomping on init.el
 (let* ((f (expand-file-name
-           "~/.config/emacs-custom.el"  ; you might want to change this
+           "~/.config/emacs-custom.el"  ; Before changing this read C-h f custom-file
            )))
   (cond ((file-readable-p f)
          (setq custom-file f)
-         (load custom-file))))
+         (load custom-file)
+         (message "Loaded custom definitions from %s" f))))
 
 ;; satisfy flycheck
 (eval-when-compile (require 'url-vars)
@@ -29,7 +30,7 @@
 ;; Personal settings
 (setq mail-host-address (system-name)
       user-mail-address "your_email@eaxmple.com"
-      mastodon-instance-url "https://mastodon.social"
+      mastodon-instance-url "https://your-mastodon-instance"
       mastodon-active-user "your-mastodon-user-name"
       mastodon-client--token-file (expand-file-name "/path/to/mastodon.plstore")
       )
@@ -44,7 +45,7 @@
   (make-directory my-backup-dir t)
   (message "Created %s" my-backup-dir))
 
-;; Once copied to config.el as required you may want to remove these next comments.
+;; Once copied to config.el you may want to remove these next comments.
 ;; Local Variables:
 ;; flycheck-disabled-checkers: (emacs-lisp-checkdoc)
 ;; End:
