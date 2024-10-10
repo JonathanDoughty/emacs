@@ -4,7 +4,7 @@
 ;;; typically byte-compiled full set of initializations.
 
 ;;; Code:
-(setq debug-on-error t)
+;;(setq debug-on-error t)
 (defvar load-init t "Whether to load full initialization file.")
 (defvar byte-compile-init t "Whether to byte-compile the full initialization file.")
 (defvar config-file "config.el" "Configure personalizations.")
@@ -118,7 +118,8 @@ Byte-code is not necessarily forwards or alternate version compatible."
       (message "%s is readable, loading" init-file))
 
     (insure-byte-code-version)
-    (load-file init-file))))
+    (with-demoted-errors "Unexpected: %S" ; so first-time use-package timeouts don't kill us.
+      (load-file init-file)))))
 
 (defun load-config-and-init (config-path generic-config)
   "Initialize by loading CONFIG-PATH (or GENERIC-CONFIG), then full init file."
